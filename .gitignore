@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# dotenvx
+.env.keys
+
+# Supabase
+.branches
+.temp
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+.vercel/

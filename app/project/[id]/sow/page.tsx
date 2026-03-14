@@ -1,0 +1,322 @@
+'use client'
+
+import { use, useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
+import { useProjects } from '@/lib/project-context'
+import { ProjectNotFound } from '@/components/project-not-found'
+import { RichTextEditor } from '@/components/rich-text-editor'
+import { DraftSelector } from '@/components/draft-selector'
+import { ProjectDataSelector } from '@/components/project-data-selector'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { exportToDocx, exportToPdf } from '@/lib/export-utils'
+import { htmlToText, textToHtml } from '@/lib/rich-text'
+import { useProjectDataSelection } from '@/lib/use-project-data-selection'
+import {
+  ArrowLeft,
+  FileText,
+  ArrowRight,
+  ListChecks,
+  Sparkles,
+  Download,
+  FileType,
+  FileIcon,
+} from 'lucide-react'
+
+interface SOWPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function SOWPage({ params }: SOWPageProps) {
+  const { id } = use(params)
+  const {
+    projects,
+    setCurrentProject,
+    createSowDraft,
+    updateSowDraft,
+    deleteSowDraft,
+    setActiveSowDraft,
+    renameSowDraft,
+  } = useProjects()
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [content, setContent] = useState('')
+
+  const project = projects.find((p) => p.id === id)
+  const { selectedIds: selectedDataEntryIds, setSelectedIds: setSelectedDataEntryIds } =
+    useProjectDataSelection(project?.dataEntries)
+  const activeDraft = project?.sowDrafts.find((d) => d.id === project.activeSowDraftId)
+  const selectedDataEntries =
+    project?.dataEntries.filter((entry) => selectedDataEntryIds.includes(entry.id)) ?? []
+  const hasProjectData = (project?.dataEntries.length ?? 0) > 0
+
+  useEffect(() => {
+    if (project) {
+      setCurrentProject(project)
+      if (activeDraft) {
+        setContent(activeDraft.content)
+      } else {
+        setContent('')
+      }
+    }
+  }, [project, activeDraft, setCurrentProject])
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (project && activeDraft && content !== activeDraft.content) {
+      const timeout = setTimeout(() => {
+        updateSowDraft(id, activeDraft.id, content)
+      }, 500)
+      return () => clearTimeout(timeout)
+    }
+  }, [content, id, project, activeDraft, updateSowDraft])
+
+  const handleCreateDraft = useCallback(
+    (name: string) => {
+      if (project && hasProjectData) {
+        createSowDraft(id, name)
+      }
+    },
+    [id, project, createSowDraft, hasProjectData]
+  )
+
+  const handleSelectDraft = useCallback(
+    (draftId: string) => {
+      if (project) {
+        setActiveSowDraft(id, draftId)
+        const draft = project.sowDrafts.find((d) => d.id === draftId)
+        if (draft) {
+          setContent(draft.content)
+        }
+      }
+    },
+    [id, project, setActiveSowDraft]
+  )
+
+  const handleGenerate = useCallback(async () => {
+    if (!project || !activeDraft || selectedDataEntries.length === 0) return
+
+    setIsGenerating(true)
+    try {
+      const response = await fetch('/api/generate-sow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: project.name,
+          projectDescription: project.description,
+          dataEntries: selectedDataEntries,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to generate SOW')
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No reader available')
+
+      const decoder = new TextDecoder()
+      let result = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        result += decoder.decode(value, { stream: true })
+        // Convert to HTML for rich editor
+        setContent(textToHtml(result))
+      }
+    } catch (error) {
+      console.error('Error generating SOW:', error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [project, activeDraft, selectedDataEntries])
+
+  const handleExportDocx = useCallback(async () => {
+    if (!project || !activeDraft) return
+    await exportToDocx({
+      projectName: project.name,
+      content: htmlToText(content),
+      type: 'sow',
+    })
+  }, [project, activeDraft, content])
+
+  const handleExportPdf = useCallback(async () => {
+    if (!project || !activeDraft) return
+    await exportToPdf({
+      projectName: project.name,
+      content: htmlToText(content),
+      type: 'sow',
+    })
+  }, [project, activeDraft, content])
+
+  if (!project) {
+    return <ProjectNotFound />
+  }
+
+  if (!hasProjectData) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex flex-col gap-4 border-b bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href={`/project/${id}`}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Back to project</span>
+              </Link>
+            </Button>
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-chart-2" />
+                <h1 className="text-xl font-semibold">Statement of Work</h1>
+              </div>
+              <p className="text-sm text-muted-foreground">{project.name}</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex flex-1 items-center justify-center p-6">
+          <div className="max-w-md rounded-lg border bg-muted/20 p-8 text-center">
+            <h2 className="text-lg font-semibold">Add project data before creating SOW</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              You need at least one Project Data entry before you can create or generate a Statement
+              of Work.
+            </p>
+            <Button className="mt-4" asChild>
+              <Link href={`/project/${id}`}>Back to Project Data</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <header className="flex flex-col gap-4 border-b bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href={`/project/${id}`}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back to project</span>
+            </Link>
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-chart-2" />
+              <h1 className="text-xl font-semibold">Statement of Work</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">{project.name}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <ListChecks className="h-3 w-3" />
+            {selectedDataEntries.length}/{project.dataEntries.length} entries
+          </Badge>
+          {activeDraft && content ? (
+            <Button variant="outline" size="sm" asChild className="gap-1">
+              <Link href={`/project/${id}/srs`}>
+                Continue to SRS
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-1" disabled>
+              Continue to SRS
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden w-72 flex-shrink-0 border-r bg-muted/30 p-4 lg:block">
+          <ProjectDataSelector
+            entries={project.dataEntries}
+            selectedIds={selectedDataEntryIds}
+            onChange={setSelectedDataEntryIds}
+            description="Choose which project data entries to send into SOW generation."
+          />
+        </aside>
+
+        <main className="flex flex-1 flex-col overflow-hidden p-6">
+          {/* Toolbar */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <DraftSelector
+              drafts={project.sowDrafts}
+              activeDraftId={project.activeSowDraftId}
+              onSelectDraft={handleSelectDraft}
+              onCreateDraft={handleCreateDraft}
+              onRenameDraft={(draftId, name) => renameSowDraft(id, draftId, name)}
+              onDeleteDraft={(draftId) => deleteSowDraft(id, draftId)}
+              documentType="SOW"
+            />
+
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || !activeDraft || selectedDataEntries.length === 0}
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <Spinner className="size-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {isGenerating ? 'Generating...' : 'Generate with AI'}
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={!activeDraft || !content} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportDocx} className="gap-2">
+                    <FileType className="h-4 w-4" />
+                    Export as DOCX
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPdf} className="gap-2">
+                    <FileIcon className="h-4 w-4" />
+                    Export as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Editor */}
+          {activeDraft ? (
+            <RichTextEditor
+              value={content}
+              onChange={setContent}
+              placeholder="Start writing your Statement of Work or click 'Generate with AI' to create one based on your project data..."
+              disabled={isGenerating}
+              className="flex-1"
+            />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-md border border-dashed bg-muted/30 p-8">
+              <FileText className="h-12 w-12 text-muted-foreground" />
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">No Draft Selected</h3>
+                <p className="text-sm text-muted-foreground">
+                  Create a new draft to start writing your Statement of Work
+                </p>
+              </div>
+              <Button onClick={() => handleCreateDraft('SOW Draft 1')} className="gap-2">
+                Create First Draft
+              </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
