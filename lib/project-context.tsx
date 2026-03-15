@@ -6,6 +6,7 @@ import { supabase } from './supabaseClient'
 
 interface ProjectContextType {
   projects: Project[]
+  isHydrated: boolean
   currentProject: Project | null
   setCurrentProject: (project: Project | null) => void
   createProject: (name: string, description: string) => Project
@@ -801,6 +802,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     <ProjectContext.Provider
       value={{
         projects,
+        isHydrated,
         currentProject,
         setCurrentProject,
         createProject,

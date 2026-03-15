@@ -38,6 +38,7 @@ export default function SOWPage({ params }: SOWPageProps) {
   const { id } = use(params)
   const {
     projects,
+    isHydrated,
     setCurrentProject,
     createSowDraft,
     updateSowDraft,
@@ -154,6 +155,13 @@ export default function SOWPage({ params }: SOWPageProps) {
     })
   }, [project, activeDraft, content])
 
+  if (!isHydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading…</div>
+      </div>
+    )
+  }
   if (!project) {
     return <ProjectNotFound />
   }

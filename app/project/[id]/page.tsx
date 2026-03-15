@@ -19,8 +19,8 @@ interface ProjectPageProps {
 
 export default function ProjectPage({ params }: ProjectPageProps) {
   const { id } = use(params)
-  const { projects, setCurrentProject } = useProjects()
-  
+  const { projects, isHydrated, setCurrentProject } = useProjects()
+
   const project = projects.find((p) => p.id === id)
 
   useEffect(() => {
@@ -28,6 +28,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setCurrentProject(project)
     }
   }, [project, setCurrentProject])
+
+  if (!isHydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading project…</div>
+      </div>
+    )
+  }
 
   if (!project) {
     return <ProjectNotFound />

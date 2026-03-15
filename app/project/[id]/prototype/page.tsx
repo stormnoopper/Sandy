@@ -30,6 +30,7 @@ export default function PrototypePage({ params }: PrototypePageProps) {
   const { id } = use(params)
   const {
     projects,
+    isHydrated,
     setCurrentProject,
     createSrsDraft,
     deleteSrsDraft,
@@ -138,6 +139,13 @@ export default function PrototypePage({ params }: PrototypePageProps) {
     }
   }, [prompt])
 
+  if (!isHydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading…</div>
+      </div>
+    )
+  }
   if (!project) {
     return <ProjectNotFound />
   }

@@ -49,6 +49,7 @@ export default function SRSPage({ params }: SRSPageProps) {
   const { id } = use(params)
   const {
     projects,
+    isHydrated,
     setCurrentProject,
     createSrsDraft,
     updateSrsDraft,
@@ -219,6 +220,13 @@ export default function SRSPage({ params }: SRSPageProps) {
     })
   }, [project, activeDraft, content])
 
+  if (!isHydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading…</div>
+      </div>
+    )
+  }
   if (!project) {
     return <ProjectNotFound />
   }
