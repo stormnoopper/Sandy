@@ -9,5 +9,5 @@ export default withAuth({
 })
 
 export const config = {
-  matcher: ['/project/:path*', '/api/generate-sow', '/api/generate-srs'],
+  matcher: ['/api/generate-sow', '/api/generate-srs'],
 }
