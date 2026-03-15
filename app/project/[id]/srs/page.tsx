@@ -20,6 +20,7 @@ import {
 import { exportToDocx, exportToPdf } from '@/lib/export-utils'
 import { getRichTextPreview, hasRichTextContent, htmlToText, textToHtml } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
+import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
   FileCode,
@@ -129,10 +130,32 @@ export default function SRSPage({ params }: SRSPageProps) {
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to generate SRS')
+      if (!response.ok) {
+        const body = await response.text()
+        let message = 'Failed to generate SRS'
+        try {
+          const json = JSON.parse(body)
+          if (json.error) message = json.error
+        } catch {
+          if (body) message = body
+        }
+        toast({
+          title: 'Generation failed',
+          description: message,
+          variant: 'destructive',
+        })
+        return
+      }
 
       const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader available')
+      if (!reader) {
+        toast({
+          title: 'Generation failed',
+          description: 'No response stream',
+          variant: 'destructive',
+        })
+        return
+      }
 
       const decoder = new TextDecoder()
       let result = ''
@@ -145,6 +168,11 @@ export default function SRSPage({ params }: SRSPageProps) {
       }
     } catch (error) {
       console.error('Error generating SRS:', error)
+      toast({
+        title: 'Generation failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      })
     } finally {
       setIsGenerating(false)
     }
@@ -172,10 +200,32 @@ export default function SRSPage({ params }: SRSPageProps) {
           }),
         })
 
-        if (!response.ok) throw new Error('Failed to generate section')
+        if (!response.ok) {
+          const body = await response.text()
+          let message = 'Failed to generate section'
+          try {
+            const json = JSON.parse(body)
+            if (json.error) message = json.error
+          } catch {
+            if (body) message = body
+          }
+          toast({
+            title: 'Generation failed',
+            description: message,
+            variant: 'destructive',
+          })
+          return
+        }
 
         const reader = response.body?.getReader()
-        if (!reader) throw new Error('No reader available')
+        if (!reader) {
+          toast({
+            title: 'Generation failed',
+            description: 'No response stream',
+            variant: 'destructive',
+          })
+          return
+        }
 
         const decoder = new TextDecoder()
         let sectionContent = ''
@@ -195,6 +245,11 @@ export default function SRSPage({ params }: SRSPageProps) {
         })
       } catch (error) {
         console.error('Error generating section:', error)
+        toast({
+          title: 'Generation failed',
+          description: error instanceof Error ? error.message : 'Something went wrong',
+          variant: 'destructive',
+        })
       } finally {
         setIsGenerating(false)
       }

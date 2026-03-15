@@ -8,6 +8,7 @@ export default withAuth({
   secret: getAuthSecret(),
 })
 
+// Auth for /project/* is done in the layout (server). API routes check session in the handler.
 export const config = {
-  matcher: ['/api/generate-sow', '/api/generate-srs'],
+  matcher: [],
 }

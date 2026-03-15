@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { Providers } from './providers'
+import { Toaster } from '@/components/ui/toaster'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
+        <Toaster />
         <Analytics />
       </body>
     </html>

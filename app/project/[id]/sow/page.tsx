@@ -19,6 +19,7 @@ import {
 import { exportToDocx, exportToPdf } from '@/lib/export-utils'
 import { htmlToText, textToHtml } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
+import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
   FileText,
@@ -115,10 +116,32 @@ export default function SOWPage({ params }: SOWPageProps) {
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to generate SOW')
+      if (!response.ok) {
+        const body = await response.text()
+        let message = 'Failed to generate SOW'
+        try {
+          const json = JSON.parse(body)
+          if (json.error) message = json.error
+        } catch {
+          if (body) message = body
+        }
+        toast({
+          title: 'Generation failed',
+          description: message,
+          variant: 'destructive',
+        })
+        return
+      }
 
       const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader available')
+      if (!reader) {
+        toast({
+          title: 'Generation failed',
+          description: 'No response stream',
+          variant: 'destructive',
+        })
+        return
+      }
 
       const decoder = new TextDecoder()
       let result = ''
@@ -132,6 +155,11 @@ export default function SOWPage({ params }: SOWPageProps) {
       }
     } catch (error) {
       console.error('Error generating SOW:', error)
+      toast({
+        title: 'Generation failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      })
     } finally {
       setIsGenerating(false)
     }
