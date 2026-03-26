@@ -222,7 +222,7 @@ export default function PrototypePage({ params }: PrototypePageProps) {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-4 overflow-hidden p-6">
+      <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <DraftSelector
             drafts={project.srsDrafts}

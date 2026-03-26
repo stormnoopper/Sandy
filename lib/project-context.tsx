@@ -447,15 +447,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteSowDraft = useCallback((projectId: string, draftId: string) => {
+    let nextActiveId: string | null = null
+
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id !== projectId) return p
         const newDrafts = p.sowDrafts.filter((d) => d.id !== draftId)
+        nextActiveId = p.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSowDraftId
         return {
           ...p,
           sowDrafts: newDrafts,
-          activeSowDraftId:
-            p.activeSowDraftId === draftId ? newDrafts[0]?.id || null : p.activeSowDraftId,
+          activeSowDraftId: nextActiveId,
           updatedAt: new Date(),
         }
       })
@@ -463,23 +465,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setCurrentProject((prev) => {
       if (prev?.id !== projectId) return prev
       const newDrafts = prev.sowDrafts.filter((d) => d.id !== draftId)
+      const newActiveId = prev.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSowDraftId
       return {
         ...prev,
         sowDrafts: newDrafts,
-        activeSowDraftId:
-          prev.activeSowDraftId === draftId ? newDrafts[0]?.id || null : prev.activeSowDraftId,
+        activeSowDraftId: newActiveId,
         updatedAt: new Date(),
       }
     })
 
-    void supabase
-      .from('sow_drafts')
-      .delete()
-      .eq('id', draftId)
-      .then(({ error }) => {
-        if (error) console.error('Error deleting SOW draft in Supabase:', error)
-      })
-  }, [])
+    void (async () => {
+      // Must clear the FK reference before deleting the draft row
+      const project = projects.find((p) => p.id === projectId)
+      if (project?.activeSowDraftId === draftId) {
+        const newDrafts = project.sowDrafts.filter((d) => d.id !== draftId)
+        const newActiveId = newDrafts[0]?.id ?? null
+        await supabase
+          .from('projects')
+          .update({ active_sow_draft_id: newActiveId, updated_at: new Date().toISOString() })
+          .eq('id', projectId)
+      }
+      const { error } = await supabase.from('sow_drafts').delete().eq('id', draftId)
+      if (error) console.error('Error deleting SOW draft in Supabase:', error)
+    })()
+  }, [projects])
 
   const setActiveSowDraft = useCallback((projectId: string, draftId: string) => {
     const updatedAt = new Date()
@@ -645,7 +654,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           srsDrafts: newDrafts,
           prototypes: p.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
           activeSrsDraftId:
-            p.activeSrsDraftId === draftId ? newDrafts[0]?.id || null : p.activeSrsDraftId,
+            p.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSrsDraftId,
           updatedAt: new Date(),
         }
       })
@@ -658,19 +667,26 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         srsDrafts: newDrafts,
         prototypes: prev.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
         activeSrsDraftId:
-          prev.activeSrsDraftId === draftId ? newDrafts[0]?.id || null : prev.activeSrsDraftId,
+          prev.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSrsDraftId,
         updatedAt: new Date(),
       }
     })
 
-    void supabase
-      .from('srs_drafts')
-      .delete()
-      .eq('id', draftId)
-      .then(({ error }) => {
-        if (error) console.error('Error deleting SRS draft in Supabase:', error)
-      })
-  }, [])
+    void (async () => {
+      // Must clear the FK reference before deleting the draft row
+      const project = projects.find((p) => p.id === projectId)
+      if (project?.activeSrsDraftId === draftId) {
+        const newDrafts = project.srsDrafts.filter((d) => d.id !== draftId)
+        const newActiveId = newDrafts[0]?.id ?? null
+        await supabase
+          .from('projects')
+          .update({ active_srs_draft_id: newActiveId, updated_at: new Date().toISOString() })
+          .eq('id', projectId)
+      }
+      const { error } = await supabase.from('srs_drafts').delete().eq('id', draftId)
+      if (error) console.error('Error deleting SRS draft in Supabase:', error)
+    })()
+  }, [projects])
 
   const setActiveSrsDraft = useCallback((projectId: string, draftId: string) => {
     const updatedAt = new Date()

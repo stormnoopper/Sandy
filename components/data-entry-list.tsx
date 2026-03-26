@@ -87,70 +87,72 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
               Add Entry
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Add Data Entry</DialogTitle>
               <DialogDescription>
                 Add requirements, notes, or file content to your project.
               </DialogDescription>
             </DialogHeader>
-            <Tabs value={entryType} onValueChange={(v) => setEntryType(v as 'text' | 'file')}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="text" className="gap-2">
-                  <Type className="h-4 w-4" />
-                  Text Entry
-                </TabsTrigger>
-                <TabsTrigger value="file" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  File Upload
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="text" className="mt-4">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>Entry Name</FieldLabel>
-                    <Input
-                      placeholder="e.g., User Requirements"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Content</FieldLabel>
-                    <Textarea
-                      placeholder="Enter your requirements, notes, or specifications..."
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      rows={6}
-                    />
-                  </Field>
-                </FieldGroup>
-              </TabsContent>
-              <TabsContent value="file" className="mt-4">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>Upload Text File</FieldLabel>
-                    <Input
-                      type="file"
-                      accept=".txt,.md,.csv,.json"
-                      onChange={handleFileRead}
-                    />
-                  </Field>
-                  {name && (
-                    <>
-                      <Field>
-                        <FieldLabel>File Name</FieldLabel>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Preview</FieldLabel>
-                        <Textarea value={content} readOnly rows={6} className="font-mono text-sm" />
-                      </Field>
-                    </>
-                  )}
-                </FieldGroup>
-              </TabsContent>
-            </Tabs>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <Tabs value={entryType} onValueChange={(v) => setEntryType(v as 'text' | 'file')}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="text" className="gap-2">
+                    <Type className="h-4 w-4" />
+                    Text Entry
+                  </TabsTrigger>
+                  <TabsTrigger value="file" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    File Upload
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="text" className="mt-4">
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel>Entry Name</FieldLabel>
+                      <Input
+                        placeholder="e.g., User Requirements"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Content</FieldLabel>
+                      <Textarea
+                        placeholder="Enter your requirements, notes, or specifications..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        rows={6}
+                      />
+                    </Field>
+                  </FieldGroup>
+                </TabsContent>
+                <TabsContent value="file" className="mt-4">
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel>Upload Text File</FieldLabel>
+                      <Input
+                        type="file"
+                        accept=".txt,.md,.csv,.json"
+                        onChange={handleFileRead}
+                      />
+                    </Field>
+                    {name && (
+                      <>
+                        <Field>
+                          <FieldLabel>File Name</FieldLabel>
+                          <Input value={name} onChange={(e) => setName(e.target.value)} />
+                        </Field>
+                        <Field>
+                          <FieldLabel>Preview</FieldLabel>
+                          <Textarea value={content} readOnly rows={6} className="font-mono text-sm" />
+                        </Field>
+                      </>
+                    )}
+                  </FieldGroup>
+                </TabsContent>
+              </Tabs>
+            </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel

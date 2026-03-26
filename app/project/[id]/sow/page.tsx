@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useProjects } from '@/lib/project-context'
 import { ProjectNotFound } from '@/components/project-not-found'
@@ -19,6 +20,7 @@ import {
 import { exportToDocx, exportToPdf } from '@/lib/export-utils'
 import { htmlToText, textToHtml } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
+import { stripDocumentMarker, hasDocumentMarker } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
@@ -37,6 +39,7 @@ interface SOWPageProps {
 
 export default function SOWPage({ params }: SOWPageProps) {
   const { id } = use(params)
+  const router = useRouter()
   const {
     projects,
     isHydrated,
@@ -48,6 +51,8 @@ export default function SOWPage({ params }: SOWPageProps) {
     renameSowDraft,
   } = useProjects()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isComplete, setIsComplete] = useState(false)
+  const [generateStatus, setGenerateStatus] = useState<'generating' | 'waiting' | 'continuing' | null>(null)
   const [content, setContent] = useState('')
 
   const project = projects.find((p) => p.id === id)
@@ -63,8 +68,10 @@ export default function SOWPage({ params }: SOWPageProps) {
       setCurrentProject(project)
       if (activeDraft) {
         setContent(activeDraft.content)
+        setIsComplete(hasDocumentMarker(htmlToText(activeDraft.content)))
       } else {
         setContent('')
+        setIsComplete(false)
       }
     }
   }, [project, activeDraft, setCurrentProject])
@@ -104,55 +111,95 @@ export default function SOWPage({ params }: SOWPageProps) {
   const handleGenerate = useCallback(async () => {
     if (!project || !activeDraft || selectedDataEntries.length === 0) return
 
-    setIsGenerating(true)
-    try {
+    const MAX_CONTINUATIONS = 10
+    const CONTINUE_DELAY_MS = 5000
+
+    const streamOnce = async (
+      body: Record<string, unknown>,
+      baseText: string
+    ): Promise<{ finalText: string; complete: boolean; error?: string }> => {
       const response = await fetch('/api/generate-sow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectName: project.name,
-          projectDescription: project.description,
-          dataEntries: selectedDataEntries,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) {
-        const body = await response.text()
+        const responseBody = await response.text()
         let message = 'Failed to generate SOW'
         try {
-          const json = JSON.parse(body)
+          const json = JSON.parse(responseBody)
           if (json.error) message = json.error
         } catch {
-          if (body) message = body
+          if (responseBody) message = responseBody
         }
-        toast({
-          title: 'Generation failed',
-          description: message,
-          variant: 'destructive',
-        })
-        return
+        return { finalText: baseText, complete: false, error: message }
       }
 
       const reader = response.body?.getReader()
-      if (!reader) {
-        toast({
-          title: 'Generation failed',
-          description: 'No response stream',
-          variant: 'destructive',
-        })
-        return
-      }
+      if (!reader) return { finalText: baseText, complete: false, error: 'No response stream' }
 
       const decoder = new TextDecoder()
-      let result = ''
+      let streamed = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        result += decoder.decode(value, { stream: true })
-        // Convert to HTML for rich editor
-        setContent(textToHtml(result))
+        streamed += decoder.decode(value, { stream: true })
+        const combined = baseText + streamed
+        if (hasDocumentMarker(combined)) {
+          const cleaned = stripDocumentMarker(combined)
+          setContent(textToHtml(cleaned))
+          return { finalText: cleaned, complete: true }
+        }
+        setContent(textToHtml(combined))
       }
+
+      return { finalText: baseText + streamed, complete: false }
+    }
+
+    setIsGenerating(true)
+    // Regenerate from scratch: clear current editor content immediately.
+    // Auto-save will persist the new content as streaming progresses.
+    setContent('')
+    setIsComplete(false)
+    setGenerateStatus('generating')
+
+    try {
+      const initial = await streamOnce(
+        {
+          projectName: project.name,
+          projectDescription: project.description,
+          dataEntries: selectedDataEntries,
+        },
+        ''
+      )
+
+      if (initial.error) {
+        toast({ title: 'Generation failed', description: initial.error, variant: 'destructive' })
+        return
+      }
+
+      let currentText = initial.finalText
+      let complete = initial.complete
+
+      for (let i = 0; i < MAX_CONTINUATIONS && !complete; i++) {
+        setGenerateStatus('waiting')
+        await new Promise((resolve) => setTimeout(resolve, CONTINUE_DELAY_MS))
+        setGenerateStatus('continuing')
+
+        const cont = await streamOnce({ continueFrom: currentText }, currentText)
+
+        if (cont.error) {
+          toast({ title: 'Continue failed', description: cont.error, variant: 'destructive' })
+          break
+        }
+
+        currentText = cont.finalText
+        complete = cont.complete
+      }
+
+      if (complete) setIsComplete(true)
     } catch (error) {
       console.error('Error generating SOW:', error)
       toast({
@@ -162,6 +209,7 @@ export default function SOWPage({ params }: SOWPageProps) {
       })
     } finally {
       setIsGenerating(false)
+      setGenerateStatus(null)
     }
   }, [project, activeDraft, selectedDataEntries])
 
@@ -289,7 +337,14 @@ export default function SOWPage({ params }: SOWPageProps) {
               onSelectDraft={handleSelectDraft}
               onCreateDraft={handleCreateDraft}
               onRenameDraft={(draftId, name) => renameSowDraft(id, draftId, name)}
-              onDeleteDraft={(draftId) => deleteSowDraft(id, draftId)}
+              onDeleteDraft={(draftId) => {
+                const wasActive = project?.activeSowDraftId === draftId
+                const hasOtherDrafts = (project?.sowDrafts.length ?? 0) > 1
+                deleteSowDraft(id, draftId)
+                if (wasActive && !hasOtherDrafts) {
+                  router.push(`/project/${id}`)
+                }
+              }}
               documentType="SOW"
             />
 
@@ -304,7 +359,13 @@ export default function SOWPage({ params }: SOWPageProps) {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                {isGenerating ? 'Generating...' : 'Generate with AI'}
+                {isGenerating
+                  ? generateStatus === 'waiting'
+                    ? 'Waiting 5s...'
+                    : generateStatus === 'continuing'
+                      ? 'Continuing...'
+                      : 'Generating...'
+                  : 'Generate with AI'}
               </Button>
 
               <DropdownMenu>

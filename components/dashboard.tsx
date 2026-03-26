@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signOut, useSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useProjects } from '@/lib/project-context'
 import { ProjectCard } from './project-card'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { FolderPlus, FolderKanban, LogOut, Search } from 'lucide-react'
+import { FolderPlus, FolderKanban, Search } from 'lucide-react'
 
 export function Dashboard() {
   const { data: session } = useSession()
@@ -57,22 +57,11 @@ export function Dashboard() {
   return (
     <div className="flex-1 p-6">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-            <p className="mt-2 text-muted-foreground">
-              Manage your projects and documentation with AI assistance
-            </p>
-          </div>
-          <div className="flex items-center gap-3 self-start">
-            {session?.user?.name && (
-              <p className="hidden text-sm text-muted-foreground md:block">{session.user.name}</p>
-            )}
-            <Button variant="outline" onClick={() => signOut({ callbackUrl: '/' })}>
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-2 text-muted-foreground">
+            Manage your projects and documentation with AI assistance
+          </p>
         </header>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -179,7 +168,7 @@ export function Dashboard() {
                   setDeleteId(null)
                 }
               }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
