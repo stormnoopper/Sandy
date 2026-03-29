@@ -1,80 +1,17 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { Loader2, LockKeyhole, UserRound } from 'lucide-react'
+import { Loader2, LockKeyhole } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-
-type AuthMode = 'login' | 'register'
 
 export function AuthForm() {
-  const router = useRouter()
-  const [mode, setMode] = useState<AuthMode>('login')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [error, setError] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const isRegisterMode = mode === 'register'
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-
-    if (isRegisterMode && password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      if (isRegisterMode) {
-        const registerResponse = await fetch('/api/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username,
-            password,
-            keyword,
-          }),
-        })
-
-        const registerResult = await registerResponse.json()
-
-        if (!registerResponse.ok) {
-          setError(registerResult.error ?? 'Unable to create your account.')
-          return
-        }
-      }
-
-      const signInResult = await signIn('credentials', {
-        username,
-        password,
-        redirect: false,
-      })
-
-      if (signInResult?.error) {
-        setError('Invalid username or password.')
-        return
-      }
-
-      router.push('/')
-      router.refresh()
-    } catch (submitError) {
-      console.error('Authentication request failed:', submitError)
-      setError('Something went wrong. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+  async function handleGoogleSignIn() {
+    setIsLoading(true)
+    await signIn('google', { callbackUrl: '/' })
   }
 
   return (
@@ -86,121 +23,41 @@ export function AuthForm() {
           </div>
           <div>
             <CardTitle>Sandy</CardTitle>
-            <CardDescription>Login or register right from the homepage.</CardDescription>
-          </div>
-        </div>
-        <div className="rounded-lg border bg-muted/40 p-1">
-          <div className="grid grid-cols-2 gap-1">
-            <Button
-              type="button"
-              variant={isRegisterMode ? 'ghost' : 'default'}
-              onClick={() => {
-                setMode('login')
-                setError('')
-              }}
-            >
-              Login
-            </Button>
-            <Button
-              type="button"
-              variant={isRegisterMode ? 'default' : 'ghost'}
-              onClick={() => {
-                setMode('register')
-                setError('')
-              }}
-            >
-              Register
-            </Button>
+            <CardDescription>Sign in to access your projects.</CardDescription>
           </div>
         </div>
       </CardHeader>
 
       <CardContent>
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="username">Username</FieldLabel>
-              <Input
-                id="username"
-                autoComplete="username"
-                placeholder="storm"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                required
+        <Button
+          className="w-full gap-3"
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
               />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                minLength={6}
-                required
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
               />
-            </Field>
-
-            {isRegisterMode && (
-              <Field>
-                <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Repeat your password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  minLength={6}
-                  required
-                />
-              </Field>
-            )}
-
-            {isRegisterMode && (
-              <Field>
-                <FieldLabel htmlFor="keyword">Passcode</FieldLabel>
-                <Input
-                  id="keyword"
-                  type="password"
-                  autoComplete="off"
-                  placeholder="Enter team passcode"
-                  value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
-                  required
-                />
-              </Field>
-            )}
-          </FieldGroup>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={
-              isSubmitting ||
-              !username.trim() ||
-              !password.trim() ||
-              (isRegisterMode && !keyword.trim())
-            }
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {isRegisterMode ? 'Creating account...' : 'Signing in...'}
-              </>
-            ) : (
-              <>
-                <UserRound className="h-4 w-4" />
-                {isRegisterMode ? 'Create Account' : 'Login'}
-              </>
-            )}
-          </Button>
-        </form>
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+          )}
+          {isLoading ? 'Signing in...' : 'Sign in with Google'}
+        </Button>
       </CardContent>
     </Card>
   )

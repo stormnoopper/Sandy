@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useSession } from 'next-auth/react'
 import type { Project, DataEntry, DocumentDraft, PrototypeDocument } from './types'
 import { supabase } from './supabaseClient'
 
@@ -14,6 +15,7 @@ interface ProjectContextType {
   deleteProject: (id: string) => void
   addDataEntry: (projectId: string, entry: Omit<DataEntry, 'id' | 'createdAt'>) => void
   removeDataEntry: (projectId: string, entryId: string) => void
+  refreshProjects: () => void
   // SOW Draft methods
   createSowDraft: (projectId: string, name: string) => DocumentDraft
   updateSowDraft: (projectId: string, draftId: string, content: string) => void
@@ -31,9 +33,10 @@ interface ProjectContextType {
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined)
 
-const STORAGE_KEY = 'project-manager-data-v2'
+function storageKey(userId: string) {
+  return `project-manager-data-v3-${userId}`
+}
 
-// Helpers to map Supabase rows into our TypeScript types
 function mapDataEntry(row: any): DataEntry {
   return {
     id: row.id,
@@ -65,16 +68,48 @@ function mapPrototype(row: any): PrototypeDocument {
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession()
+  const userId = (session?.user as any)?.id as string | undefined
+  const userName = session?.user?.name ?? null
+  const userEmail = session?.user?.email ?? null
+
   const [projects, setProjects] = useState<Project[]>([])
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [refreshCount, setRefreshCount] = useState(0)
 
-  // Initial load: try Supabase, fall back to localStorage only on failure
+  const refreshProjects = useCallback(() => setRefreshCount((c) => c + 1), [])
+
   useEffect(() => {
+    if (status === 'loading') return
+    if (!userId) {
+      setIsHydrated(true)
+      return
+    }
+
+    setIsHydrated(false)
     let cancelled = false
 
     async function load() {
       try {
+        // Get project IDs this user is a member of
+        const { data: memberRows, error: memberError } = await supabase
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', userId)
+
+        if (memberError) throw memberError
+
+        const projectIds = (memberRows ?? []).map((r: any) => r.project_id as string)
+
+        if (projectIds.length === 0) {
+          if (!cancelled) {
+            setProjects([])
+            setIsHydrated(true)
+          }
+          return
+        }
+
         const [
           { data: projectRows, error: projectsError },
           { data: dataEntryRows, error: dataEntriesError },
@@ -85,16 +120,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           supabase
             .from('projects')
             .select(
-              'id, name, description, created_at, updated_at, active_sow_draft_id, active_srs_draft_id'
+              'id, name, description, owner_id, created_at, updated_at, active_sow_draft_id, active_srs_draft_id'
             )
+            .in('id', projectIds)
             .order('created_at', { ascending: true }),
-          supabase.from('data_entries').select('id, project_id, type, content, name, created_at'),
+          supabase
+            .from('data_entries')
+            .select('id, project_id, type, content, name, created_at')
+            .in('project_id', projectIds),
           supabase
             .from('sow_drafts')
-            .select('id, project_id, name, content, created_at, updated_at'),
+            .select('id, project_id, name, content, created_at, updated_at')
+            .in('project_id', projectIds),
           supabase
             .from('srs_drafts')
-            .select('id, project_id, name, content, created_at, updated_at'),
+            .select('id, project_id, name, content, created_at, updated_at')
+            .in('project_id', projectIds),
           supabase
             .from('prototype_documents')
             .select('id, srs_draft_id, prompt, created_at, updated_at'),
@@ -103,15 +144,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const firstError =
           projectsError || dataEntriesError || sowDraftsError || srsDraftsError || prototypesError
 
-        if (firstError) {
-          throw firstError
-        }
+        if (firstError) throw firstError
 
         if (!cancelled) {
           const mapped: Project[] = (projectRows ?? []).map((row: any) => ({
             id: row.id,
             name: row.name,
             description: row.description,
+            ownerId: row.owner_id ?? '',
             createdAt: new Date(row.created_at),
             updatedAt: new Date(row.updated_at),
             dataEntries: (dataEntryRows ?? [])
@@ -142,13 +182,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         console.warn('Unexpected error loading projects from Supabase (non-fatal):', err)
       }
 
-      // Fallback to existing localStorage data (old behavior)
+      // Fallback to localStorage
       try {
-        const stored = localStorage.getItem(STORAGE_KEY)
+        const stored = localStorage.getItem(storageKey(userId!))
         if (stored) {
           const parsed = JSON.parse(stored)
           const projectsWithDates = parsed.map((p: Project) => ({
             ...p,
+            ownerId: p.ownerId ?? '',
             createdAt: new Date(p.createdAt),
             updatedAt: new Date(p.updatedAt),
             dataEntries: p.dataEntries.map((e: DataEntry) => ({
@@ -191,55 +232,73 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [userId, status, refreshCount])
 
-  // Keep a local cache for fast reloads
+  // User-scoped localStorage cache
   useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+    if (isHydrated && userId) {
+      localStorage.setItem(storageKey(userId), JSON.stringify(projects))
     }
-  }, [projects, isHydrated])
+  }, [projects, isHydrated, userId])
 
-  const createProject = useCallback((name: string, description: string): Project => {
-    const now = new Date()
-    const id = crypto.randomUUID()
-    const newProject: Project = {
-      id,
-      name,
-      description,
-      createdAt: now,
-      updatedAt: now,
-      dataEntries: [],
-      sowDrafts: [],
-      srsDrafts: [],
-      prototypes: [],
-      activeSowDraftId: null,
-      activeSrsDraftId: null,
-    }
-    setProjects((prev) => [...prev, newProject])
-
-    void supabase
-      .from('projects')
-      .insert({
+  const createProject = useCallback(
+    (name: string, description: string): Project => {
+      const now = new Date()
+      const id = crypto.randomUUID()
+      const newProject: Project = {
         id,
         name,
         description,
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error creating project in Supabase:', {
-            message: error.message,
-            details: (error as any).details,
-            hint: (error as any).hint,
-            code: (error as any).code,
-          })
-        }
-      })
+        ownerId: userId ?? '',
+        createdAt: now,
+        updatedAt: now,
+        dataEntries: [],
+        sowDrafts: [],
+        srsDrafts: [],
+        prototypes: [],
+        activeSowDraftId: null,
+        activeSrsDraftId: null,
+      }
+      setProjects((prev) => [...prev, newProject])
 
-    return newProject
-  }, [])
+      void (async () => {
+        const { error: projectError } = await supabase.from('projects').insert({
+          id,
+          name,
+          description,
+          owner_id: userId ?? '',
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
+
+        if (projectError) {
+          console.error('Error creating project in Supabase:', {
+            message: projectError.message,
+            details: (projectError as any).details,
+            hint: (projectError as any).hint,
+            code: (projectError as any).code,
+          })
+          return
+        }
+
+        const { error: memberError } = await supabase.from('project_members').insert({
+          project_id: id,
+          user_id: userId ?? '',
+          user_name: userName,
+          user_email: userEmail,
+          role: 'owner',
+          joined_at: now.toISOString(),
+        })
+
+        if (memberError) {
+          console.error('Error creating project owner membership in Supabase:', memberError)
+        }
+      })()
+
+      return newProject
+    },
+    [userId, userName, userEmail]
+  )
 
   const updateProject = useCallback((id: string, updates: Partial<Project>) => {
     const updatedAt = new Date()
@@ -282,11 +341,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     (projectId: string, entry: Omit<DataEntry, 'id' | 'createdAt'>) => {
       const createdAt = new Date()
       const id = crypto.randomUUID()
-      const newEntry: DataEntry = {
-        ...entry,
-        id,
-        createdAt,
-      }
+      const newEntry: DataEntry = { ...entry, id, createdAt }
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
@@ -321,21 +376,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              dataEntries: p.dataEntries.filter((e) => e.id !== entryId),
-              updatedAt: new Date(),
-            }
+          ? { ...p, dataEntries: p.dataEntries.filter((e) => e.id !== entryId), updatedAt: new Date() }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            dataEntries: prev.dataEntries.filter((e) => e.id !== entryId),
-            updatedAt: new Date(),
-          }
+        ? { ...prev, dataEntries: prev.dataEntries.filter((e) => e.id !== entryId), updatedAt: new Date() }
         : prev
     )
 
@@ -352,33 +399,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const createSowDraft = useCallback((projectId: string, name: string): DocumentDraft => {
     const now = new Date()
     const id = crypto.randomUUID()
-    const newDraft: DocumentDraft = {
-      id,
-      name,
-      content: '',
-      createdAt: now,
-      updatedAt: now,
-    }
+    const newDraft: DocumentDraft = { id, name, content: '', createdAt: now, updatedAt: now }
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              sowDrafts: [...p.sowDrafts, newDraft],
-              activeSowDraftId: newDraft.id,
-              updatedAt: now,
-            }
+          ? { ...p, sowDrafts: [...p.sowDrafts, newDraft], activeSowDraftId: newDraft.id, updatedAt: now }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            sowDrafts: [...prev.sowDrafts, newDraft],
-            activeSowDraftId: newDraft.id,
-            updatedAt: now,
-          }
+        ? { ...prev, sowDrafts: [...prev.sowDrafts, newDraft], activeSowDraftId: newDraft.id, updatedAt: now }
         : prev
     )
 
@@ -391,20 +422,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
       })
-
       if (insertError) {
         console.error('Error creating SOW draft in Supabase:', insertError)
         return
       }
-
       const { error: updateError } = await supabase
         .from('projects')
         .update({ active_sow_draft_id: id, updated_at: now.toISOString() })
         .eq('id', projectId)
-
-      if (updateError) {
-        console.error('Error setting active SOW draft in Supabase:', updateError)
-      }
+      if (updateError) console.error('Error setting active SOW draft in Supabase:', updateError)
     })()
 
     return newDraft
@@ -415,28 +441,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              sowDrafts: p.sowDrafts.map((d) =>
-                d.id === draftId ? { ...d, content, updatedAt } : d
-              ),
-              updatedAt,
-            }
+          ? { ...p, sowDrafts: p.sowDrafts.map((d) => (d.id === draftId ? { ...d, content, updatedAt } : d)), updatedAt }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            sowDrafts: prev.sowDrafts.map((d) =>
-              d.id === draftId ? { ...d, content, updatedAt } : d
-            ),
-            updatedAt,
-          }
+        ? { ...prev, sowDrafts: prev.sowDrafts.map((d) => (d.id === draftId ? { ...d, content, updatedAt } : d)), updatedAt }
         : prev
     )
-
     void supabase
       .from('sow_drafts')
       .update({ content, updated_at: updatedAt.toISOString() })
@@ -446,61 +459,53 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
-  const deleteSowDraft = useCallback((projectId: string, draftId: string) => {
-    let nextActiveId: string | null = null
-
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (p.id !== projectId) return p
-        const newDrafts = p.sowDrafts.filter((d) => d.id !== draftId)
-        nextActiveId = p.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSowDraftId
-        return {
-          ...p,
-          sowDrafts: newDrafts,
-          activeSowDraftId: nextActiveId,
-          updatedAt: new Date(),
-        }
+  const deleteSowDraft = useCallback(
+    (projectId: string, draftId: string) => {
+      let nextActiveId: string | null = null
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== projectId) return p
+          const newDrafts = p.sowDrafts.filter((d) => d.id !== draftId)
+          nextActiveId =
+            p.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSowDraftId
+          return { ...p, sowDrafts: newDrafts, activeSowDraftId: nextActiveId, updatedAt: new Date() }
+        })
+      )
+      setCurrentProject((prev) => {
+        if (prev?.id !== projectId) return prev
+        const newDrafts = prev.sowDrafts.filter((d) => d.id !== draftId)
+        const newActiveId =
+          prev.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSowDraftId
+        return { ...prev, sowDrafts: newDrafts, activeSowDraftId: newActiveId, updatedAt: new Date() }
       })
-    )
-    setCurrentProject((prev) => {
-      if (prev?.id !== projectId) return prev
-      const newDrafts = prev.sowDrafts.filter((d) => d.id !== draftId)
-      const newActiveId = prev.activeSowDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSowDraftId
-      return {
-        ...prev,
-        sowDrafts: newDrafts,
-        activeSowDraftId: newActiveId,
-        updatedAt: new Date(),
-      }
-    })
 
-    void (async () => {
-      // Must clear the FK reference before deleting the draft row
-      const project = projects.find((p) => p.id === projectId)
-      if (project?.activeSowDraftId === draftId) {
-        const newDrafts = project.sowDrafts.filter((d) => d.id !== draftId)
-        const newActiveId = newDrafts[0]?.id ?? null
-        await supabase
-          .from('projects')
-          .update({ active_sow_draft_id: newActiveId, updated_at: new Date().toISOString() })
-          .eq('id', projectId)
-      }
-      const { error } = await supabase.from('sow_drafts').delete().eq('id', draftId)
-      if (error) console.error('Error deleting SOW draft in Supabase:', error)
-    })()
-  }, [projects])
+      void (async () => {
+        const project = projects.find((p) => p.id === projectId)
+        if (project?.activeSowDraftId === draftId) {
+          const newDrafts = project.sowDrafts.filter((d) => d.id !== draftId)
+          await supabase
+            .from('projects')
+            .update({
+              active_sow_draft_id: newDrafts[0]?.id ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', projectId)
+        }
+        const { error } = await supabase.from('sow_drafts').delete().eq('id', draftId)
+        if (error) console.error('Error deleting SOW draft in Supabase:', error)
+      })()
+    },
+    [projects]
+  )
 
   const setActiveSowDraft = useCallback((projectId: string, draftId: string) => {
     const updatedAt = new Date()
     setProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId ? { ...p, activeSowDraftId: draftId, updatedAt } : p
-      )
+      prev.map((p) => (p.id === projectId ? { ...p, activeSowDraftId: draftId, updatedAt } : p))
     )
     setCurrentProject((prev) =>
       prev?.id === projectId ? { ...prev, activeSowDraftId: draftId, updatedAt } : prev
     )
-
     void supabase
       .from('projects')
       .update({ active_sow_draft_id: draftId, updated_at: updatedAt.toISOString() })
@@ -515,28 +520,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              sowDrafts: p.sowDrafts.map((d) =>
-                d.id === draftId ? { ...d, name, updatedAt } : d
-              ),
-              updatedAt,
-            }
+          ? { ...p, sowDrafts: p.sowDrafts.map((d) => (d.id === draftId ? { ...d, name, updatedAt } : d)), updatedAt }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            sowDrafts: prev.sowDrafts.map((d) =>
-              d.id === draftId ? { ...d, name, updatedAt } : d
-            ),
-            updatedAt,
-          }
+        ? { ...prev, sowDrafts: prev.sowDrafts.map((d) => (d.id === draftId ? { ...d, name, updatedAt } : d)), updatedAt }
         : prev
     )
-
     void supabase
       .from('sow_drafts')
       .update({ name, updated_at: updatedAt.toISOString() })
@@ -550,33 +542,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const createSrsDraft = useCallback((projectId: string, name: string): DocumentDraft => {
     const now = new Date()
     const id = crypto.randomUUID()
-    const newDraft: DocumentDraft = {
-      id,
-      name,
-      content: '',
-      createdAt: now,
-      updatedAt: now,
-    }
+    const newDraft: DocumentDraft = { id, name, content: '', createdAt: now, updatedAt: now }
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              srsDrafts: [...p.srsDrafts, newDraft],
-              activeSrsDraftId: newDraft.id,
-              updatedAt: now,
-            }
+          ? { ...p, srsDrafts: [...p.srsDrafts, newDraft], activeSrsDraftId: newDraft.id, updatedAt: now }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            srsDrafts: [...prev.srsDrafts, newDraft],
-            activeSrsDraftId: newDraft.id,
-            updatedAt: now,
-          }
+        ? { ...prev, srsDrafts: [...prev.srsDrafts, newDraft], activeSrsDraftId: newDraft.id, updatedAt: now }
         : prev
     )
 
@@ -589,20 +565,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
       })
-
       if (insertError) {
         console.error('Error creating SRS draft in Supabase:', insertError)
         return
       }
-
       const { error: updateError } = await supabase
         .from('projects')
         .update({ active_srs_draft_id: id, updated_at: now.toISOString() })
         .eq('id', projectId)
-
-      if (updateError) {
-        console.error('Error setting active SRS draft in Supabase:', updateError)
-      }
+      if (updateError) console.error('Error setting active SRS draft in Supabase:', updateError)
     })()
 
     return newDraft
@@ -613,28 +584,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              srsDrafts: p.srsDrafts.map((d) =>
-                d.id === draftId ? { ...d, content, updatedAt } : d
-              ),
-              updatedAt,
-            }
+          ? { ...p, srsDrafts: p.srsDrafts.map((d) => (d.id === draftId ? { ...d, content, updatedAt } : d)), updatedAt }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            srsDrafts: prev.srsDrafts.map((d) =>
-              d.id === draftId ? { ...d, content, updatedAt } : d
-            ),
-            updatedAt,
-          }
+        ? { ...prev, srsDrafts: prev.srsDrafts.map((d) => (d.id === draftId ? { ...d, content, updatedAt } : d)), updatedAt }
         : prev
     )
-
     void supabase
       .from('srs_drafts')
       .update({ content, updated_at: updatedAt.toISOString() })
@@ -644,61 +602,62 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
-  const deleteSrsDraft = useCallback((projectId: string, draftId: string) => {
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (p.id !== projectId) return p
-        const newDrafts = p.srsDrafts.filter((d) => d.id !== draftId)
+  const deleteSrsDraft = useCallback(
+    (projectId: string, draftId: string) => {
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== projectId) return p
+          const newDrafts = p.srsDrafts.filter((d) => d.id !== draftId)
+          return {
+            ...p,
+            srsDrafts: newDrafts,
+            prototypes: p.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
+            activeSrsDraftId:
+              p.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSrsDraftId,
+            updatedAt: new Date(),
+          }
+        })
+      )
+      setCurrentProject((prev) => {
+        if (prev?.id !== projectId) return prev
+        const newDrafts = prev.srsDrafts.filter((d) => d.id !== draftId)
         return {
-          ...p,
+          ...prev,
           srsDrafts: newDrafts,
-          prototypes: p.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
+          prototypes: prev.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
           activeSrsDraftId:
-            p.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : p.activeSrsDraftId,
+            prev.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSrsDraftId,
           updatedAt: new Date(),
         }
       })
-    )
-    setCurrentProject((prev) => {
-      if (prev?.id !== projectId) return prev
-      const newDrafts = prev.srsDrafts.filter((d) => d.id !== draftId)
-      return {
-        ...prev,
-        srsDrafts: newDrafts,
-        prototypes: prev.prototypes.filter((prototype) => prototype.srsDraftId !== draftId),
-        activeSrsDraftId:
-          prev.activeSrsDraftId === draftId ? (newDrafts[0]?.id ?? null) : prev.activeSrsDraftId,
-        updatedAt: new Date(),
-      }
-    })
 
-    void (async () => {
-      // Must clear the FK reference before deleting the draft row
-      const project = projects.find((p) => p.id === projectId)
-      if (project?.activeSrsDraftId === draftId) {
-        const newDrafts = project.srsDrafts.filter((d) => d.id !== draftId)
-        const newActiveId = newDrafts[0]?.id ?? null
-        await supabase
-          .from('projects')
-          .update({ active_srs_draft_id: newActiveId, updated_at: new Date().toISOString() })
-          .eq('id', projectId)
-      }
-      const { error } = await supabase.from('srs_drafts').delete().eq('id', draftId)
-      if (error) console.error('Error deleting SRS draft in Supabase:', error)
-    })()
-  }, [projects])
+      void (async () => {
+        const project = projects.find((p) => p.id === projectId)
+        if (project?.activeSrsDraftId === draftId) {
+          const newDrafts = project.srsDrafts.filter((d) => d.id !== draftId)
+          await supabase
+            .from('projects')
+            .update({
+              active_srs_draft_id: newDrafts[0]?.id ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', projectId)
+        }
+        const { error } = await supabase.from('srs_drafts').delete().eq('id', draftId)
+        if (error) console.error('Error deleting SRS draft in Supabase:', error)
+      })()
+    },
+    [projects]
+  )
 
   const setActiveSrsDraft = useCallback((projectId: string, draftId: string) => {
     const updatedAt = new Date()
     setProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId ? { ...p, activeSrsDraftId: draftId, updatedAt } : p
-      )
+      prev.map((p) => (p.id === projectId ? { ...p, activeSrsDraftId: draftId, updatedAt } : p))
     )
     setCurrentProject((prev) =>
       prev?.id === projectId ? { ...prev, activeSrsDraftId: draftId, updatedAt } : prev
     )
-
     void supabase
       .from('projects')
       .update({ active_srs_draft_id: draftId, updated_at: updatedAt.toISOString() })
@@ -713,28 +672,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? {
-              ...p,
-              srsDrafts: p.srsDrafts.map((d) =>
-                d.id === draftId ? { ...d, name, updatedAt } : d
-              ),
-              updatedAt,
-            }
+          ? { ...p, srsDrafts: p.srsDrafts.map((d) => (d.id === draftId ? { ...d, name, updatedAt } : d)), updatedAt }
           : p
       )
     )
     setCurrentProject((prev) =>
       prev?.id === projectId
-        ? {
-            ...prev,
-            srsDrafts: prev.srsDrafts.map((d) =>
-              d.id === draftId ? { ...d, name, updatedAt } : d
-            ),
-            updatedAt,
-          }
+        ? { ...prev, srsDrafts: prev.srsDrafts.map((d) => (d.id === draftId ? { ...d, name, updatedAt } : d)), updatedAt }
         : prev
     )
-
     void supabase
       .from('srs_drafts')
       .update({ name, updated_at: updatedAt.toISOString() })
@@ -750,24 +696,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((project) => {
         if (project.id !== projectId) return project
-
-        const existing = project.prototypes.find((prototype) => prototype.srsDraftId === srsDraftId)
+        const existing = project.prototypes.find((p) => p.srsDraftId === srsDraftId)
         const nextPrototype: PrototypeDocument = existing
           ? { ...existing, prompt, updatedAt }
-          : {
-              id: crypto.randomUUID(),
-              srsDraftId,
-              prompt,
-              createdAt: updatedAt,
-              updatedAt,
-            }
-
+          : { id: crypto.randomUUID(), srsDraftId, prompt, createdAt: updatedAt, updatedAt }
         return {
           ...project,
           prototypes: existing
-            ? project.prototypes.map((prototype) =>
-                prototype.srsDraftId === srsDraftId ? nextPrototype : prototype
-              )
+            ? project.prototypes.map((p) => (p.srsDraftId === srsDraftId ? nextPrototype : p))
             : [...project.prototypes, nextPrototype],
           updatedAt,
         }
@@ -776,24 +712,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     setCurrentProject((prev) => {
       if (prev?.id !== projectId) return prev
-
-      const existing = prev.prototypes.find((prototype) => prototype.srsDraftId === srsDraftId)
+      const existing = prev.prototypes.find((p) => p.srsDraftId === srsDraftId)
       const nextPrototype: PrototypeDocument = existing
         ? { ...existing, prompt, updatedAt }
-        : {
-            id: crypto.randomUUID(),
-            srsDraftId,
-            prompt,
-            createdAt: updatedAt,
-            updatedAt,
-          }
-
+        : { id: crypto.randomUUID(), srsDraftId, prompt, createdAt: updatedAt, updatedAt }
       return {
         ...prev,
         prototypes: existing
-          ? prev.prototypes.map((prototype) =>
-              prototype.srsDraftId === srsDraftId ? nextPrototype : prototype
-            )
+          ? prev.prototypes.map((p) => (p.srsDraftId === srsDraftId ? nextPrototype : p))
           : [...prev.prototypes, nextPrototype],
         updatedAt,
       }
@@ -801,14 +727,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     void supabase
       .from('prototype_documents')
-      .upsert(
-        {
-          srs_draft_id: srsDraftId,
-          prompt,
-          updated_at: updatedAt.toISOString(),
-        },
-        { onConflict: 'srs_draft_id' }
-      )
+      .upsert({ srs_draft_id: srsDraftId, prompt, updated_at: updatedAt.toISOString() }, { onConflict: 'srs_draft_id' })
       .then(({ error }) => {
         if (error) console.error('Error saving prototype in Supabase:', error)
       })
@@ -826,6 +745,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         deleteProject,
         addDataEntry,
         removeDataEntry,
+        refreshProjects,
         createSowDraft,
         updateSowDraft,
         deleteSowDraft,

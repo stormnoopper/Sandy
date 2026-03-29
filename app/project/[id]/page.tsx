@@ -3,11 +3,13 @@
 import { use, useEffect } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { useSession } from 'next-auth/react'
 import { ProjectNotFound } from '@/components/project-not-found'
 import { useProjects } from '@/lib/project-context'
 import { getRichTextPreview, hasRichTextContent } from '@/lib/rich-text'
 import { DataEntryList } from '@/components/data-entry-list'
 import { WorkflowDiagram } from '@/components/workflow-diagram'
+import { ProjectMembersPanel } from '@/components/project-members-panel'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +22,8 @@ interface ProjectPageProps {
 export default function ProjectPage({ params }: ProjectPageProps) {
   const { id } = use(params)
   const { projects, isHydrated, setCurrentProject } = useProjects()
+  const { data: session } = useSession()
+  const userId = (session?.user as any)?.id as string | undefined
 
   const project = projects.find((p) => p.id === id)
 
@@ -41,6 +45,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     return <ProjectNotFound />
   }
 
+  const isOwner = userId === project.ownerId
   const activeSowDraft = project.sowDrafts.find((d) => d.id === project.activeSowDraftId)
   const activeSrsDraft = project.srsDrafts.find((d) => d.id === project.activeSrsDraftId)
   const hasProjectData = project.dataEntries.length > 0
@@ -102,6 +107,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
 
           <div className="space-y-4">
+            {isOwner && <ProjectMembersPanel projectId={project.id} />}
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg">

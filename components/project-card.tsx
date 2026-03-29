@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { useSession } from 'next-auth/react'
 import type { Project } from '@/lib/types'
 import { useProjects } from '@/lib/project-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,7 +27,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
-import { MoreHorizontal, FileText, ListChecks, Trash2, ArrowRight, LayoutTemplate } from 'lucide-react'
+import { MoreHorizontal, FileText, ListChecks, Trash2, ArrowRight, LayoutTemplate, Copy, Check } from 'lucide-react'
 
 interface ProjectCardProps {
   project: Project
@@ -35,9 +36,20 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const { updateProject } = useProjects()
+  const { data: session } = useSession()
+  const userId = (session?.user as any)?.id as string | undefined
+  const isOwner = userId === project.ownerId
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState(project.name)
   const [editDescription, setEditDescription] = useState(project.description)
+  const [copied, setCopied] = useState(false)
+
+  function handleCopyId() {
+    void navigator.clipboard.writeText(project.id).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const handleEditOpenChange = (open: boolean) => {
     setEditOpen(open)
@@ -144,12 +156,26 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
           <span className="text-xs text-muted-foreground">
             Updated {format(project.updatedAt, 'MMM d, yyyy')}
           </span>
-          <Button variant="ghost" size="sm" asChild className="gap-1">
-            <Link href={`/project/${project.id}`}>
-              Open
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </Button>
+          <div className="flex items-center gap-1">
+            {isOwner && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-xs text-muted-foreground"
+                onClick={handleCopyId}
+                title="Copy project ID to share"
+              >
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? 'Copied' : 'Share ID'}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" asChild className="gap-1">
+              <Link href={`/project/${project.id}`}>
+                Open
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </CardContent>
       <Dialog open={editOpen} onOpenChange={handleEditOpenChange}>

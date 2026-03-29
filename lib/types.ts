@@ -26,6 +26,7 @@ export interface Project {
   id: string
   name: string
   description: string
+  ownerId: string
   createdAt: Date
   updatedAt: Date
   dataEntries: DataEntry[]
@@ -34,6 +35,14 @@ export interface Project {
   prototypes: PrototypeDocument[]
   activeSowDraftId: string | null
   activeSrsDraftId: string | null
+}
+
+export interface ProjectMember {
+  userId: string
+  userName: string | null
+  userEmail: string | null
+  role: 'owner' | 'member'
+  joinedAt: Date
 }
 
 export type ProjectStatus = 'draft' | 'in-progress' | 'completed'
