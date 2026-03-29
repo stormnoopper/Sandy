@@ -217,7 +217,7 @@ export default function SOWPage({ params }: SOWPageProps) {
     if (!project || !activeDraft) return
     await exportToDocx({
       projectName: project.name,
-      content: htmlToText(content),
+      content,
       type: 'sow',
     })
   }, [project, activeDraft, content])
@@ -226,7 +226,7 @@ export default function SOWPage({ params }: SOWPageProps) {
     if (!project || !activeDraft) return
     await exportToPdf({
       projectName: project.name,
-      content: htmlToText(content),
+      content,
       type: 'sow',
     })
   }, [project, activeDraft, content])

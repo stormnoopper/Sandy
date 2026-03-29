@@ -321,7 +321,7 @@ export default function SRSPage({ params }: SRSPageProps) {
     if (!project || !activeDraft) return
     await exportToDocx({
       projectName: project.name,
-      content: htmlToText(content),
+      content,
       type: 'srs',
     })
   }, [project, activeDraft, content])
@@ -330,7 +330,7 @@ export default function SRSPage({ params }: SRSPageProps) {
     if (!project || !activeDraft) return
     await exportToPdf({
       projectName: project.name,
-      content: htmlToText(content),
+      content,
       type: 'srs',
     })
   }, [project, activeDraft, content])
@@ -550,19 +550,6 @@ export default function SRSPage({ params }: SRSPageProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {activeDraft && content ? (
-                <Button variant="outline" asChild>
-                  <Link href={`/project/${id}/prototype`}>
-                    <LayoutTemplate className="h-4 w-4" />
-                    Continue to Prototype
-                  </Link>
-                </Button>
-              ) : (
-                <Button variant="outline" disabled>
-                  <LayoutTemplate className="h-4 w-4" />
-                  Continue to Prototype
-                </Button>
-              )}
             </div>
           </div>
 
