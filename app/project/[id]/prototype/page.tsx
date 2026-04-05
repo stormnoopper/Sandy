@@ -19,7 +19,11 @@ import {
 import { useProjects } from '@/lib/project-context'
 import { getRichTextPreview, hasRichTextContent, htmlToText } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
-import { buildPrototypePrompt } from '@/prompts/prototype'
+import {
+  buildPrototypePrompt,
+  PROTOTYPE_BUILD_TARGET_OPTIONS,
+  type PrototypeBuildTarget,
+} from '@/prompts/prototype'
 import { ArrowLeft, Copy, LayoutTemplate, Sparkles } from 'lucide-react'
 
 interface PrototypePageProps {
@@ -42,6 +46,7 @@ export default function PrototypePage({ params }: PrototypePageProps) {
   const [prompt, setPrompt] = useState('')
   const [isCopying, setIsCopying] = useState(false)
   const [baseSrsDraftId, setBaseSrsDraftId] = useState('')
+  const [prototypeBuildTarget, setPrototypeBuildTarget] = useState<PrototypeBuildTarget>('base44')
 
   const project = projects.find((project) => project.id === id)
   const { selectedIds: selectedDataEntryIds, setSelectedIds: setSelectedDataEntryIds } =
@@ -120,11 +125,19 @@ export default function PrototypePage({ params }: PrototypePageProps) {
       baseSrsDraftName: baseSrsDraft.name,
       srsText,
       dataEntries: selectedDataEntries,
+      buildTarget: prototypeBuildTarget,
     })
 
     setPrompt(generatedPrompt)
     upsertPrototype(project.id, activeSrsDraft.id, generatedPrompt)
-  }, [project, activeSrsDraft, baseSrsDraft, upsertPrototype, selectedDataEntries])
+  }, [
+    project,
+    activeSrsDraft,
+    baseSrsDraft,
+    upsertPrototype,
+    selectedDataEntries,
+    prototypeBuildTarget,
+  ])
 
   const handleCopy = useCallback(async () => {
     if (!prompt) return
@@ -235,6 +248,24 @@ export default function PrototypePage({ params }: PrototypePageProps) {
           />
 
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-[200px] flex-col gap-1 sm:min-w-[240px]">
+              <span className="text-xs font-medium text-muted-foreground">Build for</span>
+              <Select
+                value={prototypeBuildTarget}
+                onValueChange={(value) => setPrototypeBuildTarget(value as PrototypeBuildTarget)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROTOTYPE_BUILD_TARGET_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               onClick={handleGeneratePrompt}
               disabled={!activeSrsDraft || !baseSrsDraft || !baseSrsDraft.content}

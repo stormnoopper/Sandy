@@ -1,23 +1,74 @@
 import { formatPromptDataEntries, type PromptDataEntry } from './shared'
 
+export type PrototypeBuildTarget = 'base44' | 'generic'
+
+export const PROTOTYPE_BUILD_TARGET_OPTIONS: {
+  value: PrototypeBuildTarget
+  label: string
+  description: string
+}[] = [
+  {
+    value: 'base44',
+    label: 'base44',
+    description: 'Optimized for base44 (https://base44.com)',
+  },
+  {
+    value: 'generic',
+    label: 'Other AI builder / agent',
+    description: 'Vendor-neutral spec for Lovable, Bolt, v0, Claude, etc.',
+  },
+]
+
+function targetCopy(target: PrototypeBuildTarget) {
+  if (target === 'base44') {
+    return {
+      roleIntro:
+        'You are a senior product designer and UX engineer preparing a detailed application specification to be built on the base44 AI app-builder platform (https://base44.com).',
+      taskIntro:
+        'Your task is to read the SRS and project data below, then produce a complete, actionable base44 app specification. base44 builds web apps from natural-language specs; every section you write will be used directly as input to generate the real app — so be specific, concrete, and avoid vague descriptions.',
+      docTitleLine: '# App Specification for base44',
+      designGuidelinesLine:
+        'Provide clear design direction so base44 applies a consistent look and feel:',
+      buildSectionTitle: '## 8. base44 Build Instructions (คำสั่งสำหรับ base44)',
+      buildSectionIntro: 'These instructions are addressed directly to the base44 AI builder:',
+    }
+  }
+
+  return {
+    roleIntro:
+      'You are a senior product designer and UX engineer preparing a detailed application specification for an AI coding agent or app-builder tool to implement as a responsive web application.',
+    taskIntro:
+      'Your task is to read the SRS and project data below, then produce a complete, actionable app specification. The consumer may be any AI builder or agent that turns natural-language specs into working software; every section you write will be used directly as implementation input — so be specific, concrete, and avoid vague descriptions.',
+    docTitleLine: '# App Specification',
+    designGuidelinesLine:
+      'Provide clear design direction so the implementation applies a consistent look and feel:',
+    buildSectionTitle: '## 8. Build & implementation instructions (คำสั่งสำหรับผู้พัฒนา / เอไอ)',
+    buildSectionIntro:
+      'These instructions are addressed to the AI builder, coding agent, or developer implementing this app:',
+  }
+}
+
 export function buildPrototypePrompt({
   projectName,
   projectDescription,
   baseSrsDraftName,
   srsText,
   dataEntries,
+  buildTarget = 'base44',
 }: {
   projectName: string
   projectDescription: string
   baseSrsDraftName: string
   srsText: string
   dataEntries: PromptDataEntry[]
+  buildTarget?: PrototypeBuildTarget
 }) {
   const projectDataText = formatPromptDataEntries(dataEntries)
+  const copy = targetCopy(buildTarget)
 
-  return `You are a senior product designer and UX engineer preparing a detailed application specification to be built on the base44 AI app-builder platform (https://base44.com).
+  return `${copy.roleIntro}
 
-Your task is to read the SRS and project data below, then produce a complete, actionable base44 app specification. base44 builds web apps from natural-language specs; every section you write will be used directly as input to generate the real app — so be specific, concrete, and avoid vague descriptions.
+${copy.taskIntro}
 
 STRICT RULES:
 - Output ONLY the specification document, nothing else.
@@ -44,7 +95,7 @@ ${srsText}
 
 Based on the SRS and project data above, generate the following specification document:
 
-# App Specification for base44
+${copy.docTitleLine}
 # ${projectName}
 
 ---
@@ -153,7 +204,7 @@ Describe the most critical end-to-end user flows as numbered steps. Each flow sh
 
 ## 7. Design Guidelines (แนวทางการออกแบบ)
 
-Provide clear design direction so base44 applies a consistent look and feel:
+${copy.designGuidelinesLine}
 
 - **Color palette:** [e.g., Primary blue #1E40AF, neutral grays, white background — or describe the mood: professional, corporate, minimal]
 - **Typography:** [e.g., Clean sans-serif, Thai-compatible font]
@@ -164,9 +215,9 @@ Provide clear design direction so base44 applies a consistent look and feel:
 
 ---
 
-## 8. base44 Build Instructions (คำสั่งสำหรับ base44)
+${copy.buildSectionTitle}
 
-These instructions are addressed directly to the base44 AI builder:
+${copy.buildSectionIntro}
 
 1. Build this as a **web application** with a persistent left sidebar navigation.
 2. Use the entities defined in Section 3 as the data schema. Create all entities with the exact fields listed.
