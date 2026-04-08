@@ -1,6 +1,9 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { getAuthSecret } from '@/lib/auth-secret'
+import { syncNextAuthUrlFromEnv } from '@/lib/nextauth-base-url'
+
+syncNextAuthUrlFromEnv()
 
 export const authOptions: NextAuthOptions = {
   secret: getAuthSecret(),
