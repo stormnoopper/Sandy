@@ -14,6 +14,11 @@ interface ProjectContextType {
   updateProject: (id: string, updates: Partial<Project>) => void
   deleteProject: (id: string) => void
   addDataEntry: (projectId: string, entry: Omit<DataEntry, 'id' | 'createdAt'>) => void
+  updateDataEntry: (
+    projectId: string,
+    entryId: string,
+    updates: Partial<Pick<DataEntry, 'name' | 'content' | 'type'>>
+  ) => void
   removeDataEntry: (projectId: string, entryId: string) => void
   refreshProjects: () => void
   // SOW Draft methods
@@ -367,6 +372,53 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         })
         .then(({ error }) => {
           if (error) console.error('Error adding data entry in Supabase:', error)
+        })
+    },
+    []
+  )
+
+  const updateDataEntry = useCallback(
+    (
+      projectId: string,
+      entryId: string,
+      updates: Partial<Pick<DataEntry, 'name' | 'content' | 'type'>>
+    ) => {
+      const updatedAt = new Date()
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                dataEntries: p.dataEntries.map((entry) =>
+                  entry.id === entryId ? { ...entry, ...updates } : entry
+                ),
+                updatedAt,
+              }
+            : p
+        )
+      )
+      setCurrentProject((prev) =>
+        prev?.id === projectId
+          ? {
+              ...prev,
+              dataEntries: prev.dataEntries.map((entry) =>
+                entry.id === entryId ? { ...entry, ...updates } : entry
+              ),
+              updatedAt,
+            }
+          : prev
+      )
+
+      void supabase
+        .from('data_entries')
+        .update({
+          name: updates.name,
+          content: updates.content,
+          type: updates.type,
+        })
+        .eq('id', entryId)
+        .then(({ error }) => {
+          if (error) console.error('Error updating data entry in Supabase:', error)
         })
     },
     []
@@ -744,6 +796,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         updateProject,
         deleteProject,
         addDataEntry,
+        updateDataEntry,
         removeDataEntry,
         refreshProjects,
         createSowDraft,

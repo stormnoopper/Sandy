@@ -40,11 +40,16 @@ interface DataEntryListProps {
 }
 
 export function DataEntryList({ projectId, entries }: DataEntryListProps) {
-  const { addDataEntry, removeDataEntry } = useProjects()
+  const { addDataEntry, updateDataEntry, removeDataEntry } = useProjects()
   const [open, setOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [entryType, setEntryType] = useState<'text' | 'file'>('text')
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editType, setEditType] = useState<'text' | 'file'>('text')
+  const [editName, setEditName] = useState('')
+  const [editContent, setEditContent] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const handleAdd = () => {
@@ -71,6 +76,28 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
       }
       reader.readAsText(file)
     }
+  }
+
+  const handleEditOpen = (entry: DataEntry) => {
+    setEditId(entry.id)
+    setEditType(entry.type)
+    setEditName(entry.name)
+    setEditContent(entry.content)
+    setEditOpen(true)
+  }
+
+  const handleEditSave = () => {
+    if (!editId || !editName.trim() || !editContent.trim()) return
+    updateDataEntry(projectId, editId, {
+      type: editType,
+      name: editName.trim(),
+      content: editContent.trim(),
+    })
+    setEditOpen(false)
+    setEditId(null)
+    setEditName('')
+    setEditContent('')
+    setEditType('text')
   }
 
   return (
@@ -178,7 +205,8 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="group flex items-start justify-between rounded-lg border p-3"
+                  className="group flex cursor-pointer items-start justify-between rounded-lg border p-3 transition-colors hover:bg-muted/40"
+                  onClick={() => handleEditOpen(entry)}
                 >
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
@@ -203,7 +231,10 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => setDeleteId(entry.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteId(entry.id)
+                    }}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                     <span className="sr-only">Delete entry</span>
@@ -214,6 +245,55 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
           </ScrollArea>
         )}
       </CardContent>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Data Entry</DialogTitle>
+            <DialogDescription>Update your project data details and save changes.</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-1">
+            <FieldGroup>
+              <Field>
+                <FieldLabel>Entry Type</FieldLabel>
+                <Tabs value={editType} onValueChange={(v) => setEditType(v as 'text' | 'file')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="text" className="gap-2">
+                      <Type className="h-4 w-4" />
+                      Text
+                    </TabsTrigger>
+                    <TabsTrigger value="file" className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      File
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </Field>
+              <Field>
+                <FieldLabel>Entry Name</FieldLabel>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel>Content</FieldLabel>
+                <Textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={14}
+                  className="min-h-[280px]"
+                />
+              </Field>
+            </FieldGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSave} disabled={!editName.trim() || !editContent.trim()}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

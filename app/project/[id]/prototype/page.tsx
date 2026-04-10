@@ -248,13 +248,13 @@ export default function PrototypePage({ params }: PrototypePageProps) {
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-[200px] flex-col gap-1 sm:min-w-[240px]">
-              <span className="text-xs font-medium text-muted-foreground">Build for</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">Build for</span>
               <Select
                 value={prototypeBuildTarget}
                 onValueChange={(value) => setPrototypeBuildTarget(value as PrototypeBuildTarget)}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="h-9 w-[min(100%,20rem)] min-w-[12rem] sm:min-w-[18rem]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,13 +267,19 @@ export default function PrototypePage({ params }: PrototypePageProps) {
               </Select>
             </div>
             <Button
+              className="min-w-[min(100%,16rem)] px-6 sm:min-w-[17.5rem] sm:px-8"
               onClick={handleGeneratePrompt}
               disabled={!activeSrsDraft || !baseSrsDraft || !baseSrsDraft.content}
             >
               <Sparkles className="mr-2 h-4 w-4" />
               Generate Prototype Prompt
             </Button>
-            <Button variant="outline" onClick={handleCopy} disabled={!prompt || isCopying}>
+            <Button
+              variant="outline"
+              className="min-w-[min(100%,10rem)] px-6 sm:min-w-[11.5rem] sm:px-8"
+              onClick={handleCopy}
+              disabled={!prompt || isCopying}
+            >
               <Copy className="mr-2 h-4 w-4" />
               {isCopying ? 'Copied' : 'Copy Prompt'}
             </Button>
