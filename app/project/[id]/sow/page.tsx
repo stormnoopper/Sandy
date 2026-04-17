@@ -22,6 +22,9 @@ import { htmlToText, textToHtml } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
 import { stripDocumentMarker, hasDocumentMarker } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
+import { VersionHistoryPanel } from '@/components/version-history-panel'
+import { ShareDocumentDialog } from '@/components/share-document-dialog'
+import { useSession } from 'next-auth/react'
 import {
   ArrowLeft,
   FileText,
@@ -40,6 +43,7 @@ interface SOWPageProps {
 export default function SOWPage({ params }: SOWPageProps) {
   const { id } = use(params)
   const router = useRouter()
+  const { data: session } = useSession()
   const {
     projects,
     isHydrated,
@@ -159,11 +163,14 @@ export default function SOWPage({ params }: SOWPageProps) {
     }
 
     setIsGenerating(true)
-    // Regenerate from scratch: clear current editor content immediately.
-    // Auto-save will persist the new content as streaming progresses.
     setContent('')
     setIsComplete(false)
     setGenerateStatus('generating')
+
+    const startTime = Date.now()
+    let finalStatus: 'completed' | 'failed' | 'cancelled' = 'failed'
+    let finalOutputLength = 0
+    let continuationCount = 0
 
     try {
       const initial = await streamOnce(
@@ -177,6 +184,7 @@ export default function SOWPage({ params }: SOWPageProps) {
 
       if (initial.error) {
         toast({ title: 'Generation failed', description: initial.error, variant: 'destructive' })
+        finalStatus = 'failed'
         return
       }
 
@@ -184,6 +192,7 @@ export default function SOWPage({ params }: SOWPageProps) {
       let complete = initial.complete
 
       for (let i = 0; i < MAX_CONTINUATIONS && !complete; i++) {
+        continuationCount++
         setGenerateStatus('waiting')
         await new Promise((resolve) => setTimeout(resolve, CONTINUE_DELAY_MS))
         setGenerateStatus('continuing')
@@ -199,9 +208,27 @@ export default function SOWPage({ params }: SOWPageProps) {
         complete = cont.complete
       }
 
-      if (complete) setIsComplete(true)
+      finalOutputLength = currentText.length
+      if (complete) {
+        setIsComplete(true)
+        finalStatus = 'completed'
+        // Auto-save a version snapshot after successful generation
+        void fetch(`/api/projects/${id}/versions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draftId: activeDraft.id,
+            draftType: 'sow',
+            content: textToHtml(currentText),
+            label: `AI generation — ${new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`,
+          }),
+        })
+      } else {
+        finalStatus = 'failed'
+      }
     } catch (error) {
       console.error('Error generating SOW:', error)
+      finalStatus = 'failed'
       toast({
         title: 'Generation failed',
         description: error instanceof Error ? error.message : 'Something went wrong',
@@ -210,8 +237,23 @@ export default function SOWPage({ params }: SOWPageProps) {
     } finally {
       setIsGenerating(false)
       setGenerateStatus(null)
+      // Record analytics
+      void fetch(`/api/projects/${id}/generation-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentType: 'sow',
+          draftId: activeDraft.id,
+          model: 'glm-4.5-air',
+          dataEntryCount: selectedDataEntries.length,
+          outputLength: finalOutputLength,
+          durationMs: Date.now() - startTime,
+          continuationCount,
+          status: finalStatus,
+        }),
+      })
     }
-  }, [project, activeDraft, selectedDataEntries])
+  }, [project, activeDraft, selectedDataEntries, id])
 
   const handleExportDocx = useCallback(async () => {
     if (!project || !activeDraft) return
@@ -348,7 +390,27 @@ export default function SOWPage({ params }: SOWPageProps) {
               documentType="SOW"
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeDraft && (
+                <VersionHistoryPanel
+                  projectId={id}
+                  draftId={activeDraft.id}
+                  draftType="sow"
+                  currentContent={content}
+                  userName={session?.user?.name ?? undefined}
+                />
+              )}
+
+              {activeDraft && content && (
+                <ShareDocumentDialog
+                  projectId={id}
+                  projectName={project.name}
+                  documentType="sow"
+                  draftId={activeDraft.id}
+                  draftName={activeDraft.name}
+                />
+              )}
+
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !activeDraft || selectedDataEntries.length === 0}
