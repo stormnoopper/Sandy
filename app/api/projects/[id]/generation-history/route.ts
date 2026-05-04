@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
+import { getSafeServerSession } from '@/lib/server-session'
 import { createClient } from '@supabase/supabase-js'
-import { authOptions } from '@/lib/auth'
 import type { GenerationRecord } from '@/lib/types'
 
 function getSupabase() {
@@ -22,7 +21,7 @@ async function requireMember(supabase: ReturnType<typeof getSupabase>, projectId
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
   if (!session?.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: projectId } = await params
@@ -64,7 +63,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
   if (!session?.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: projectId } = await params

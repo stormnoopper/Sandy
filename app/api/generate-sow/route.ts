@@ -1,11 +1,10 @@
 import { streamText } from 'ai'
-import { getServerSession } from 'next-auth'
+import { getSafeServerSession } from '@/lib/server-session'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { authOptions } from '@/lib/auth'
 import { buildSowPrompt, buildSowContinuePrompt, SOW_PROMPT_SETTINGS } from '@/prompts/sow'
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
 
   if (!session) {
     return new Response('Unauthorized', { status: 401 })

@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
+import { getSafeServerSession } from '@/lib/server-session'
 import { createClient } from '@supabase/supabase-js'
-import { authOptions } from '@/lib/auth'
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -26,7 +25,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
   if (!session?.user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -64,7 +63,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
   if (!session?.user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }

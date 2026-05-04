@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
+import { getSafeServerSession } from '@/lib/server-session'
 import { createClient } from '@supabase/supabase-js'
-import { authOptions } from '@/lib/auth'
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -11,7 +10,7 @@ function getSupabase() {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
   if (!session?.user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }

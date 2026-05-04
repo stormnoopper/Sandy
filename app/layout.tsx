@@ -5,6 +5,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 import { NoDarkMode } from './no-dark-mode'
+import { getSafeServerSession } from '@/lib/server-session'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -39,16 +40,18 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const session = await getSafeServerSession()
+
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         <NoDarkMode />
-        <Providers>{children}</Providers>
+        <Providers session={session as any}>{children}</Providers>
         <Toaster />
         <Analytics />
       </body>

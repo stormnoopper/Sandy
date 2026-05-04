@@ -1,7 +1,6 @@
 import { streamText } from 'ai'
-import { getServerSession } from 'next-auth'
+import { getSafeServerSession } from '@/lib/server-session'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { authOptions } from '@/lib/auth'
 import {
   buildFullSrsPrompt,
   buildSrsSectionPrompt,
@@ -10,7 +9,7 @@ import {
 } from '@/prompts/srs'
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
+  const session = await getSafeServerSession()
 
   if (!session) {
     return new Response('Unauthorized', { status: 401 })

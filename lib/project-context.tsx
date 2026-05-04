@@ -650,7 +650,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       .update({ content, updated_at: updatedAt.toISOString() })
       .eq('id', draftId)
       .then(({ error }) => {
-        if (error) console.error('Error updating SRS draft in Supabase:', error)
+        if (error) console.error('Error updating SRS draft in Supabase:', error.message, error.details, error.hint, error.code)
       })
   }, [])
 

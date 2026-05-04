@@ -37,6 +37,7 @@ import "@/components/tiptap-node/heading-node/heading-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 
 // --- Tiptap UI ---
+import { RegenerateButton } from "@/components/tiptap-ui/regenerate-button"
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
 import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
@@ -99,6 +100,7 @@ const MainToolbarContent = ({
       <ToolbarGroup>
         <UndoRedoButton action="undo" />
         <UndoRedoButton action="redo" />
+        <RegenerateButton />
       </ToolbarGroup>
 
       <ToolbarSeparator />
