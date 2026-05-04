@@ -27,6 +27,7 @@ import {
   ChevronRight,
   ChevronLeft,
   LogOut,
+  BookOpen,
 } from 'lucide-react'
 
 const NAV_HIDDEN_KEY = 'sandy-nav-hidden'
@@ -103,6 +104,18 @@ export function AppSidebar() {
               >
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
+              </Link>
+              <Link
+                href="/how-to"
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  pathname === '/how-to'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                )}
+              >
+                <BookOpen className="h-4 w-4" />
+                How to Use
               </Link>
             </div>
 
