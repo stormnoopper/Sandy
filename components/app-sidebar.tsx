@@ -23,11 +23,11 @@ import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import {
   FolderPlus,
   LayoutDashboard,
-  FolderKanban,
   ChevronRight,
   ChevronLeft,
   LogOut,
   BookOpen,
+  FolderKanban,
 } from 'lucide-react'
 
 const NAV_HIDDEN_KEY = 'sandy-nav-hidden'
@@ -40,13 +40,11 @@ export function AppSidebar() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [hidden, setHidden] = useState(false)
-  // Delay mounting content until after first render so the CSS transition plays
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(NAV_HIDDEN_KEY)
     if (stored === 'true') setHidden(true)
-    // Small delay so the initial state doesn't flash into a transition
     requestAnimationFrame(() => setMounted(true))
   }, [])
 
@@ -73,63 +71,61 @@ export function AppSidebar() {
       <aside
         className={cn(
           'relative flex h-screen shrink-0 flex-col border-r border-border bg-sidebar overflow-hidden',
-          // Only animate after first paint so there's no flash on load
           mounted && 'transition-[width] duration-300 ease-in-out',
-          hidden ? 'w-0 border-r-0' : 'w-64'
+          hidden ? 'w-0 border-r-0' : 'w-56'
         )}
       >
-        {/* Inner wrapper keeps content full-width so it slides cleanly */}
-        <div className="flex h-full w-64 flex-col">
-          {/* Header — no toggle button here anymore */}
-          <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <FolderKanban className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold text-sidebar-foreground">Sandy</span>
+        <div className="flex h-full w-56 flex-col">
+          {/* Logo */}
+          <div className="flex h-14 items-center gap-2 px-4">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
+              <FolderKanban className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
+            <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">Sandy</span>
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 p-4">
-            <div className="space-y-1">
+          <nav className="flex-1 px-3 py-2">
+            {/* Main links */}
+            <div className="space-y-0.5">
               <Link
                 href="/"
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
                   pathname === '/'
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                 )}
               >
-                <LayoutDashboard className="h-4 w-4" />
+                <LayoutDashboard className="h-3.5 w-3.5" />
                 Dashboard
               </Link>
               <Link
                 href="/how-to"
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
                   pathname === '/how-to'
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                 )}
               >
-                <BookOpen className="h-4 w-4" />
+                <BookOpen className="h-3.5 w-3.5" />
                 How to Use
               </Link>
             </div>
 
+            {/* Projects section */}
             <div className="mt-6">
-              <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center justify-between px-2.5 mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   Projects
                 </span>
                 <Dialog open={open} onOpenChange={setOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <FolderPlus className="h-4 w-4" />
+                    <button className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                      <FolderPlus className="h-3.5 w-3.5" />
                       <span className="sr-only">Create project</span>
-                    </Button>
+                    </button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -169,24 +165,24 @@ export function AppSidebar() {
                 </Dialog>
               </div>
 
-              <ScrollArea className="h-[calc(100vh-280px)]">
-                <div className="space-y-1">
+              <ScrollArea className="h-[calc(100vh-260px)]">
+                <div className="space-y-0.5">
                   {projects.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">No projects yet</p>
+                    <p className="px-2.5 py-1.5 text-xs text-muted-foreground/50">No projects yet</p>
                   ) : (
                     projects.map((project) => (
                       <Link
                         key={project.id}
                         href={`/project/${project.id}`}
                         className={cn(
-                          'flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
-                          pathname === `/project/${project.id}`
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                          'flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors',
+                          pathname.startsWith(`/project/${project.id}`)
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                            : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                         )}
                       >
                         <span className="truncate">{project.name}</span>
-                        <ChevronRight className="h-4 w-4 opacity-50" />
+                        <ChevronRight className="h-3 w-3 shrink-0 opacity-40" />
                       </Link>
                     ))
                   )}
@@ -196,48 +192,42 @@ export function AppSidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-sidebar-border p-4">
-            {session?.user && (
-              <div className="mb-3 space-y-1">
-                <p className="truncate text-sm font-medium text-sidebar-foreground">
-                  {session.user.name ?? 'Signed in'}
+          <div className="border-t border-sidebar-border px-3 py-3">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-sidebar-foreground">
+                  {session?.user?.name ?? 'User'}
+                </p>
+                <p className="text-[10px] text-muted-foreground/60">
+                  {projects.length} project{projects.length !== 1 ? 's' : ''}
                 </p>
               </div>
-            )}
-
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                {projects.length} project{projects.length !== 1 ? 's' : ''}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => signOut({ callbackUrl: '/' })}
-                className="h-8"
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-1"
+                title="Logout"
               >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* ── Right-edge toggle tab — always in the DOM, flips direction ── */}
+      {/* ── Toggle tab ── */}
       <button
         onClick={toggleNav}
         aria-label={hidden ? 'Show navigation' : 'Hide navigation'}
         className={cn(
-          'fixed top-1/2 z-50 flex h-14 w-5 -translate-y-1/2 items-center justify-center',
-          'rounded-r-lg border border-l-0 border-border bg-sidebar shadow-sm',
-          'transition-all duration-300 ease-in-out hover:bg-sidebar-accent hover:w-6',
-          // Follows the sidebar edge: 256px when open, 0 when hidden
-          hidden ? 'left-0' : 'left-64'
+          'fixed top-1/2 z-50 flex h-12 w-4 -translate-y-1/2 items-center justify-center',
+          'rounded-r-md border border-l-0 border-border bg-sidebar',
+          'transition-all duration-300 ease-in-out hover:w-5',
+          hidden ? 'left-0' : 'left-56'
         )}
       >
         {hidden
-          ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
-          : <ChevronLeft className="h-3 w-3 text-muted-foreground" />}
+          ? <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
+          : <ChevronLeft className="h-2.5 w-2.5 text-muted-foreground" />}
       </button>
     </>
   )

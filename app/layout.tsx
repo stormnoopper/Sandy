@@ -6,6 +6,7 @@ import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 import { NoDarkMode } from './no-dark-mode'
 import { getSafeServerSession } from '@/lib/server-session'
+import { NavigationLoader } from '@/components/navigation-loader'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -51,6 +52,7 @@ export default async function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         <NoDarkMode />
+        <NavigationLoader />
         <Providers session={session as any}>{children}</Providers>
         <Toaster />
         <Analytics />
