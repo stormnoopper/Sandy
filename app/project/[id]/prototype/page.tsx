@@ -16,15 +16,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useProjects } from '@/lib/project-context'
 import { getRichTextPreview, hasRichTextContent, htmlToText } from '@/lib/rich-text'
 import { useProjectDataSelection } from '@/lib/use-project-data-selection'
 import {
   buildPrototypePrompt,
   PROTOTYPE_BUILD_TARGET_OPTIONS,
-  type PrototypeBuildTarget,
 } from '@/prompts/prototype'
-import { ArrowLeft, Copy, LayoutTemplate, Sparkles } from 'lucide-react'
+import { ArrowLeft, Copy, LayoutTemplate, Sparkles, ChevronDown } from 'lucide-react'
 
 interface PrototypePageProps {
   params: Promise<{ id: string }>
@@ -46,7 +51,15 @@ export default function PrototypePage({ params }: PrototypePageProps) {
   const [prompt, setPrompt] = useState('')
   const [isCopying, setIsCopying] = useState(false)
   const [baseSrsDraftId, setBaseSrsDraftId] = useState('')
-  const [prototypeBuildTarget, setPrototypeBuildTarget] = useState<PrototypeBuildTarget>('base44')
+  const [prototypeBuildTargets, setPrototypeBuildTargets] = useState<string[]>(['Cursor'])
+
+  const toggleBuildTarget = (value: string) => {
+    setPrototypeBuildTargets(prev => 
+      prev.includes(value) 
+        ? prev.filter(t => t !== value)
+        : [...prev, value]
+    )
+  }
 
   const project = projects.find((project) => project.id === id)
   const { selectedIds: selectedDataEntryIds, setSelectedIds: setSelectedDataEntryIds } =
@@ -125,7 +138,7 @@ export default function PrototypePage({ params }: PrototypePageProps) {
       baseSrsDraftName: baseSrsDraft.name,
       srsText,
       dataEntries: selectedDataEntries,
-      buildTarget: prototypeBuildTarget,
+      buildTargets: prototypeBuildTargets,
     })
 
     setPrompt(generatedPrompt)
@@ -136,7 +149,7 @@ export default function PrototypePage({ params }: PrototypePageProps) {
     baseSrsDraft,
     upsertPrototype,
     selectedDataEntries,
-    prototypeBuildTarget,
+    prototypeBuildTargets,
   ])
 
   const handleCopy = useCallback(async () => {
@@ -248,23 +261,31 @@ export default function PrototypePage({ params }: PrototypePageProps) {
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="shrink-0 text-xs font-medium text-muted-foreground">Build for</span>
-              <Select
-                value={prototypeBuildTarget}
-                onValueChange={(value) => setPrototypeBuildTarget(value as PrototypeBuildTarget)}
-              >
-                <SelectTrigger className="h-9 w-[min(100%,20rem)] min-w-[12rem] sm:min-w-[18rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9 w-[min(100%,20rem)] min-w-[12rem] sm:min-w-[18rem] shrink justify-between px-3 font-normal text-left">
+                    <span className="truncate">
+                      {prototypeBuildTargets.length > 0 
+                        ? prototypeBuildTargets.map(t => PROTOTYPE_BUILD_TARGET_OPTIONS.find(o => o.value === t)?.label || t).join(', ')
+                        : 'Select AI Tools...'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[min(100vw-2rem,20rem)] sm:w-[18rem]">
                   {PROTOTYPE_BUILD_TARGET_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <DropdownMenuCheckboxItem
+                      key={opt.value}
+                      checked={prototypeBuildTargets.includes(opt.value)}
+                      onCheckedChange={() => toggleBuildTarget(opt.value)}
+                    >
                       {opt.label}
-                    </SelectItem>
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <Button
               className="min-w-[min(100%,16rem)] px-6 sm:min-w-[17.5rem] sm:px-8"
