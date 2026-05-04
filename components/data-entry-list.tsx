@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { format } from 'date-fns'
 import type { DataEntry } from '@/lib/types'
 import { useProjects } from '@/lib/project-context'
@@ -32,12 +32,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, FileText, Type, Trash2, ListChecks } from 'lucide-react'
+import { Plus, FileText, Type, Trash2, ListChecks, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 
 interface DataEntryListProps {
   projectId: string
   entries: DataEntry[]
 }
+
+type OcrStatus = 'idle' | 'uploading' | 'success' | 'error'
 
 export function DataEntryList({ projectId, entries }: DataEntryListProps) {
   const { addDataEntry, updateDataEntry, removeDataEntry } = useProjects()
@@ -52,6 +54,31 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
   const [editContent, setEditContent] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+  // File / OCR state
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle')
+  const [ocrError, setOcrError] = useState<string | null>(null)
+  const [ocrPages, setOcrPages] = useState<number | null>(null)
+  const [ocrMethod, setOcrMethod] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const resetDialog = () => {
+    setName('')
+    setContent('')
+    setOcrStatus('idle')
+    setOcrError(null)
+    setOcrPages(null)
+    setOcrMethod(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val)
+    if (!val) {
+      resetDialog()
+      setEntryType('text')
+    }
+  }
+
   const handleAdd = () => {
     if (name.trim() && content.trim()) {
       addDataEntry(projectId, {
@@ -59,21 +86,51 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
         name: name.trim(),
         content: content.trim(),
       })
-      setName('')
-      setContent('')
+      resetDialog()
       setOpen(false)
     }
   }
 
-  const handleFileRead = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Single handler for all file types — auto-detects PDF vs plain text
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (!file) return
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+
+    if (isPdf) {
+      // PDF → send to OCR API
+      setOcrStatus('uploading')
+      setOcrError(null)
+      setOcrPages(null)
+      setOcrMethod(null)
+      setName(file.name.replace(/\.pdf$/i, ''))
+      setContent('')
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const res = await fetch('/api/ocr-pdf', { method: 'POST', body: formData })
+        const data = await res.json()
+
+        if (!res.ok) throw new Error(data.error ?? `Server error ${res.status}`)
+
+        setContent(data.text ?? '')
+        setOcrPages(data.pages)
+        setOcrMethod(data.method)
+        setOcrStatus('success')
+      } catch (err: any) {
+        setOcrError(err.message ?? 'OCR failed')
+        setOcrStatus('error')
+      }
+    } else {
+      // Plain text file → read directly
+      setOcrStatus('idle')
+      setOcrError(null)
       setName(file.name)
       const reader = new FileReader()
-      reader.onload = (event) => {
-        const text = event.target?.result as string
-        setContent(text)
-      }
+      reader.onload = (event) => setContent(event.target?.result as string)
       reader.readAsText(file)
     }
   }
@@ -107,7 +164,7 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
           <ListChecks className="h-5 w-5" />
           Project Data
         </CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
@@ -122,7 +179,7 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
-              <Tabs value={entryType} onValueChange={(v) => setEntryType(v as 'text' | 'file')}>
+              <Tabs value={entryType} onValueChange={(v) => { setEntryType(v as 'text' | 'file'); resetDialog() }}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="text" className="gap-2">
                     <Type className="h-4 w-4" />
@@ -133,6 +190,8 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                     File Upload
                   </TabsTrigger>
                 </TabsList>
+
+                {/* Text tab */}
                 <TabsContent value="text" className="mt-4">
                   <FieldGroup>
                     <Field>
@@ -154,25 +213,65 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                     </Field>
                   </FieldGroup>
                 </TabsContent>
+
+                {/* File tab — handles text files and PDFs (auto OCR) */}
                 <TabsContent value="file" className="mt-4">
                   <FieldGroup>
                     <Field>
-                      <FieldLabel>Upload Text File</FieldLabel>
+                      <FieldLabel>Upload File</FieldLabel>
                       <Input
+                        ref={fileInputRef}
                         type="file"
-                        accept=".txt,.md,.csv,.json"
-                        onChange={handleFileRead}
+                        accept=".txt,.md,.csv,.json,application/pdf,.pdf"
+                        onChange={handleFileChange}
+                        disabled={ocrStatus === 'uploading'}
                       />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        รองรับ .txt .md .csv .json และ PDF — PDF จะถูก OCR อัตโนมัติ
+                      </p>
                     </Field>
-                    {name && (
+
+                    {/* OCR loading */}
+                    {ocrStatus === 'uploading' && (
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span>กำลัง extract ข้อความจาก PDF…</span>
+                      </div>
+                    )}
+
+                    {/* OCR error */}
+                    {ocrStatus === 'error' && (
+                      <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span>{ocrError}</span>
+                      </div>
+                    )}
+
+                    {/* File loaded (text or PDF success) */}
+                    {name && ocrStatus !== 'uploading' && ocrStatus !== 'error' && (
                       <>
+                        {ocrStatus === 'success' && (
+                          <div className="flex items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <span>
+                              PDF extract สำเร็จ
+                              {ocrPages != null && ` · ${ocrPages} หน้า`}
+                              {ocrMethod === 'claude-vision' && ' · ใช้ AI Vision'}
+                            </span>
+                          </div>
+                        )}
                         <Field>
-                          <FieldLabel>File Name</FieldLabel>
+                          <FieldLabel>ชื่อ Entry</FieldLabel>
                           <Input value={name} onChange={(e) => setName(e.target.value)} />
                         </Field>
                         <Field>
-                          <FieldLabel>Preview</FieldLabel>
-                          <Textarea value={content} readOnly rows={6} className="font-mono text-sm" />
+                          <FieldLabel>เนื้อหา {ocrStatus === 'success' ? '(แก้ไขได้)' : '(Preview)'}</FieldLabel>
+                          <Textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            rows={ocrStatus === 'success' ? 8 : 6}
+                            className="font-mono text-xs"
+                          />
                         </Field>
                       </>
                     )}
