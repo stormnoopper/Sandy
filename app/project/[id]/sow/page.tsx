@@ -413,8 +413,10 @@ export default function SOWPage({ params }: SOWPageProps) {
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || !activeDraft || selectedDataEntries.length === 0}
+                disabled={isGenerating || !activeDraft || selectedDataEntries.length === 0 || (!!content && !isGenerating)}
+                variant={content && !isGenerating ? 'outline' : 'default'}
                 className="gap-2"
+                title={content && !isGenerating ? 'Document already generated. Use the AI edit tool (wand icon) in the editor toolbar to make changes.' : ''}
               >
                 {isGenerating ? (
                   <Spinner className="size-4" />
@@ -427,7 +429,9 @@ export default function SOWPage({ params }: SOWPageProps) {
                     : generateStatus === 'continuing'
                       ? 'Continuing...'
                       : 'Generating...'
-                  : 'Generate with AI'}
+                  : content
+                    ? 'Generated ✓'
+                    : 'Generate with AI'}
               </Button>
 
               <DropdownMenu>
