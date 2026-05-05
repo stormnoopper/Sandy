@@ -60,7 +60,7 @@ WRITING STYLE (must follow):
   - System: refer as "ระบบ" or specific system name (e.g., "ระบบ SAP", "ระบบ CM").
   - Users: never say generic "ผู้ใช้งาน (User)". Always use specific roles/departments (e.g., "ฝ่ายไอที", "ฝ่ายก่อสร้าง", "ผู้จัดการโครงการ", "Admin", "ฝ่ายวิศวกรรมและประมาณการ").
 - Format preference:
-  - Use bullet points for conditions, prerequisites, and field requirements (Require/Optional/Auto).
+  - Use bullet points and text paragraphs for Prerequisite, Next Steps, User Requirements, Business Logic, and Page Flow (except Data Dictionary) to closely match the real-world PDF template.
   - Keep sentences short and action-focused.
 
 EXACT DOCUMENT STRUCTURE (must follow; top-level order is fixed):
@@ -80,11 +80,15 @@ EXACT DOCUMENT STRUCTURE (must follow; top-level order is fixed):
         5.1.8) System Interface / Integration (if any; if none, state None)
 
 MASTER MARKDOWN TEMPLATE (fill with real content; replace placeholders):
-# Software Requirements Specification
-# for ${projectName}
-### Version ${revisionVersion}
-### Date: ${createdDate}
-### By: ${authorName}
+Software
+Requirements
+Specification
+for
+${projectName}
+Version ${revisionVersion}
+Date: ${createdDate}
+By ${authorName}
+Confidential ${authorName}
 
 ---
 
@@ -111,16 +115,12 @@ MASTER MARKDOWN TEMPLATE (fill with real content; replace placeholders):
 ## {{Feature_ID}} {{Feature_Name}}
 
 ### Prerequisite
-| Pre-condition | Description | Require/Status | Source/System |
-| :--- | :--- | :---: | :--- |
-| {{Pre_Condition_1}} | {{Pre_Condition_Desc_1}} | Require | {{Pre_Condition_Source_1}} |
-| {{Pre_Condition_2}} | {{Pre_Condition_Desc_2}} | Require | {{Pre_Condition_Source_2}} |
+- {{Pre_Condition_1}}
+- {{Pre_Condition_2}}
 
 ### Next Steps
-| Trigger / Action | Post-condition / Output | Target | Role/Department |
-| :--- | :--- | :--- | :--- |
-| {{Next_Action_1}} | {{Post_Condition_1}} | {{Next_Target_1}} | {{Next_Role_1}} |
-| {{Next_Action_2}} | {{Post_Condition_2}} | {{Next_Target_2}} | {{Next_Role_2}} |
+- {{Next_Step_1}}
+- {{Next_Step_2}}
 
 ### Roles & Authorization
 | Role | Read | Create | Modify | Delete | {{Specific_Action_1}} | {{Specific_Action_2}} |
@@ -129,10 +129,7 @@ MASTER MARKDOWN TEMPLATE (fill with real content; replace placeholders):
 | {{Role_Name_2}} | X | | | | X | |
 
 ### User Requirements
-| Business Goal | Primary Role/Department | Expected Outcome |
-| :--- | :--- | :--- |
-| {{Business_Goal_1}} | {{Business_Role_1}} | {{Expected_Outcome_1}} |
-| {{Business_Goal_2}} | {{Business_Role_2}} | {{Expected_Outcome_2}} |
+{{User_Requirements_Description_Paragraphs}}
 
 ### Process flow diagram
 ~~~mermaid
@@ -145,30 +142,23 @@ graph TD;
 ~~~
 
 ### Business Logic
-| Rule ID | Rule Description | Validation Condition | System Processing | Error/Handling |
-| :--- | :--- | :--- | :--- | :--- |
-| R1 | {{System_Rules}} | {{Validation_Conditions}} | ระบบจะทำการประมวลผลตามเงื่อนไข | {{Error_Handling_1}} |
-| R2 | {{System_Rules_2}} | {{Validation_Conditions_2}} | ระบบจะทำการประมวลผลตามเงื่อนไข | {{Error_Handling_2}} |
+- {{Business_Logic_Rule_1}}
+- {{Business_Logic_Rule_2}}
 
 ### Page Flow
 #### หน้ารายการ {{Feature_Name}} (List Page)
-| Item | UI Element / Field | Requirement | Value Source | Access Scope |
-| :--- | :--- | :---: | :--- | :--- |
-| {{List_Item_1}} | {{Search_Filter_1}} | Require | {{Search_Filter_Source_1}} | {{Role_Name_1}}: {{Scope_1}} (Read) |
-| {{List_Item_2}} | {{Search_Filter_2}} | Optional | {{Search_Filter_Source_2}} | {{Role_Name_2}}: {{Scope_2}} (Read) |
+{{List_Page_Description}}
+- {{Data_Field_1}}: {{Field_Requirement_And_Description}}
+- {{Data_Field_2}}: {{Field_Requirement_And_Description}}
 
 #### หน้าเพิ่ม/แก้ไข {{Feature_Name}} (Create/Edit Page)
-| Field Name | Input Mode | Require/Optional/Auto | Constraint | Default/Format | Validation Rule |
-| :--- | :--- | :---: | :--- | :--- | :--- |
-| {{Field_Name_1}} | Input | Require | {{Field_Condition_1}} | - | {{Validation_Rule_1}} |
-| {{Field_Name_2}} | Input | Optional | {{Field_Condition_2}} | {{Default_Value}} | {{Validation_Rule_2}} |
-| {{Field_Name_3}} | System | Auto-generate | {{Field_Condition_3}} | {{Format_Pattern}} | {{Auto_Validation_Rule}} |
+{{Create_Page_Description}}
+- {{Data_Field_1}}: {{Field_Requirement_And_Description}}
+- {{Data_Field_2}}: {{Field_Requirement_And_Description}}
 
 #### หน้าดูรายละเอียด {{Feature_Name}} (Detail Page)
-| Detail Field | Display Mode | Requirement | Lock/Restriction |
-| :--- | :--- | :---: | :--- |
-| {{Detail_Field_1}} | Display | Require | - |
-| {{Detail_Field_2}} | Display | Optional | {{Lock_Condition}} |
+{{Detail_Page_Description}}
+- {{Data_Field_1}}: {{Field_Requirement_And_Description}}
 
 #### Data Dictionary / Field Spec
 | Field Name | Description | Input Type | Possible Values | Constraint |
@@ -176,9 +166,8 @@ graph TD;
 | {{field_name}} | {{Thai_Description}} | {{Data_Type}} | {{Allowed_Values}} | {{Constraint_Rules}} |
 
 ### System Interface / Integration
-| External System | Interface Method | API Endpoint | Sync/Trigger | Data Payload Mapping |
-| :--- | :--- | :--- | :--- | :--- |
-| {{External_System_Name}} | {{Interface_Method}} | {{API_Endpoint}} | {{Sync_Trigger}} | {{Data_Payload_Mapping}} |
+- {{Interface_Description_1}}
+- {{Interface_Description_2}}
 
 [DOCUMENT_COMPLETE]`
 }
@@ -210,7 +199,7 @@ WRITING STYLE (must follow):
 - Refer to:
   - System as "ระบบ" or the specific system name when determinable (e.g., ระบบ SAP)
   - Humans only as specific roles/departments (never "ผู้ใช้งาน (User)")
-- Prefer tables for prerequisites/next steps/business rules/page flow fields/system interface mapping; use bullet points only when it is clearly shorter than a table
+- Use bullet points and text paragraphs for Prerequisite, Next Steps, User Requirements, Business Logic, and Page Flow (except Data Dictionary) to closely match the real-world PDF template format.
 
 Context:
 Project Name: ${projectName}
@@ -224,9 +213,9 @@ ${existingSRS || 'No existing content.'}
 
 Task:
 - Generate the content that belongs to "${section}" using the SRS tone and formatting.
-- If you need tables (e.g., Roles matrix, Data Dictionary, Page Flow field specs, Business Logic rules), include them in markdown table format.
+- If you generate Roles & Authorization or Data Dictionary sections, you MUST use markdown table format:
   - Roles & Authorization table header must be: "Role | Read | Create | Modify | Delete | ..."
-  - Field Specification / Data Dictionary table header must be: "Field Name | Description | Input Type | Possible Values | Constraint"
+  - Data Dictionary table header must be: "Field Name | Description | Input Type | Possible Values | Constraint"
 - If the SOW does not specify anything for a subsection, write "ไม่มี" (None) in the relevant field(s).
 
 Output ONLY the section content now. When done, immediately print [DOCUMENT_COMPLETE] on the next line and STOP.`

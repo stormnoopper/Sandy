@@ -17,7 +17,7 @@ export function buildSowPrompt({
 }) {
   const dataContent = formatPromptDataEntries(dataEntries)
 
-  return `คุณคือผู้เชี่ยวชาญด้านการเขียนเอกสาร Statement of Work (SOW) หน้าที่ของคุณคือการสร้างเอกสาร SOW ตามข้อมูลที่ได้รับ โดยต้องยึดโครงสร้าง โทนเสียง และรูปแบบตามข้อกำหนดด้านล่างนี้อย่างเคร่งครัด
+    return `คุณคือผู้เชี่ยวชาญด้านการเขียนเอกสาร Statement of Work (SOW) หน้าที่ของคุณคือการสร้างเอกสาร SOW ตามข้อมูลที่ได้รับ โดยต้องยึดโครงสร้าง โทนเสียง และรูปแบบตามข้อกำหนดด้านล่างนี้อย่างเคร่งครัด
 
 **1. โทนเสียงและสไตล์การเขียน (Tone & Style):**
 *   ใช้โทนเสียงทางการระดับธุรกิจและเทคโนโลยี (Business & IT Professional Tone) ชัดเจนและตรงไปตรงมา
@@ -44,15 +44,15 @@ ${dataContent || 'ไม่มีข้อมูลเพิ่มเติม'}
 # {{Project_Name}}
 # STATEMENT OF WORK
 
-### PREPARED BY:
-### {{Prepared_By_Company}}
-### {{Prepared_By_Email}}
+PREPARED BY:
+{{Prepared_By_Company}}
+{{Prepared_By_Email}}
 
-### PREPARED FOR:
-### {{Prepared_For_Company}}
+PREPARED FOR:
+{{Prepared_For_Company}}
 
-### Version: {{Version}}
-# Date: {{Date}}
+Version: {{Version}}
+Date: {{Date}}
 
 ---
 เวอร์ชั่น: {{Version}}
@@ -62,14 +62,14 @@ ${dataContent || 'ไม่มีข้อมูลเพิ่มเติม'}
 {{Project_Name}} Version {{Version}}
 Statement of Work {{Date}}
 
-# Revision History
+## Revision History
 | Date | Version | Description | Author | Approver (Approved At) |
 | :--- | :--- | :--- | :--- | :--- |
 | {{Revision_Date}} | {{Revision_Version}} | {{Revision_Description}} | {{Revision_Author}} | {{Revision_Approver}} |
 
 ---
 
-# Table of Contents
+## Table of Contents
 1. บทนำ (Introduction)
 2. รายละเอียดผลิตภัณฑ์ (Product Description)
 3. วัตถุประสงค์ของโครงการ (Purpose)
@@ -81,34 +81,34 @@ Statement of Work {{Date}}
 
 ---
 
-### 1. บทนำ (Introduction)
+## 1. บทนำ (Introduction)
 {{System_Context}} ระบบ {{System_Name}} เป็นแนวทางการทำงานร่วมกันระหว่างผู้จัดจำหน่าย (Supplier) และลูกค้า (Customer) {{System_Definition}} ซึ่งจะช่วย {{Key_Benefits}}
 
-### 2. รายละเอียดผลิตภัณฑ์ (Product Description)
+## 2. รายละเอียดผลิตภัณฑ์ (Product Description)
 ระบบ {{System_Name}} คือระบบที่ {{Product_Overview}}
 
 2.1. {{Module_Name_EN_1}} ({{Module_ID_1}}): {{Module_Description_TH_1}}
 2.2. {{Module_Name_EN_2}} ({{Module_ID_2}}): {{Module_Description_TH_2}}
 
-### 3. วัตถุประสงค์ของโครงการ (Purpose)
+## 3. วัตถุประสงค์ของโครงการ (Purpose)
 3.1. {{Purpose_Item_1}}
 3.2. {{Purpose_Item_2}}
 
-### 4. ขอบเขตการดำเนินงาน (Scope)
+## 4. ขอบเขตการดำเนินงาน (Scope)
 ระบบนี้จะถูกใช้งานโดย {{Target_Users}} เพื่อ {{Scope_Overview}}
 
-#### 4.1. ขอบเขตการดำเนินงานประกอบไปด้วย
+### 4.1. ขอบเขตการดำเนินงานประกอบไปด้วย
 4.1.1. {{In_Scope_Item_1}}
 4.1.2. {{In_Scope_Item_2}}
 
-#### 4.2. ขอบเขตที่ไม่รวมอยู่ในงานประกอบด้วย
+### 4.2. ขอบเขตที่ไม่รวมอยู่ในงานประกอบด้วย
 4.2.1. {{Out_Of_Scope_Item_1}}
 
-### 5. วัตถุประสงค์ของโครงการ (Objectives)
+## 5. วัตถุประสงค์ของโครงการ (Objectives)
 5.1. {{Objective_Item_1}}
 5.2. {{Objective_Item_2}}
 
-### 6. ผลลัพธ์การส่งมอบ (Deliverables)
+## 6. ผลลัพธ์การส่งมอบ (Deliverables)
 6.1. {{Deliverable_Document_1}} สัปดาห์ที่ {{Deliverable_Week_1}} ({{Deliverable_Date_1}})
 6.2. {{Deliverable_Document_2}} สัปดาห์ที่ {{Deliverable_Week_2}} ({{Deliverable_Date_2}})
 6.3. Software Delivery สัปดาห์ที่ {{Software_Delivery_Week}} ({{Software_Delivery_Date}})
