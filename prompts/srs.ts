@@ -59,6 +59,7 @@ WRITING STYLE (must follow):
 - Terminology:
   - System: refer as "ระบบ" or specific system name (e.g., "ระบบ SAP", "ระบบ CM").
   - Users: never say generic "ผู้ใช้งาน (User)". Always use specific roles/departments (e.g., "ฝ่ายไอที", "ฝ่ายก่อสร้าง", "ผู้จัดการโครงการ", "Admin", "ฝ่ายวิศวกรรมและประมาณการ").
+- Exhaustive Detail: You MUST elaborate on every feature in extreme detail. Do not summarize. List EVERY possible prerequisite, business rule (both success and error paths), page element, and data field. Break down complex processes into granular steps. Ensure no technical or business requirement is left ambiguous.
 - Format preference:
   - Use bullet points and text paragraphs for Prerequisite, Next Steps, User Requirements, Business Logic, and Page Flow (except Data Dictionary) to closely match the real-world PDF template.
   - Keep sentences short and action-focused.
@@ -231,10 +232,16 @@ Rules:
 - Continue seamlessly from the exact cut-off point
 - Maintain the same markdown formatting, tone, and style
 - Complete all remaining sections that haven't been written yet
+- Exhaustive Detail: Continue elaborating in extreme detail. Do not summarize.
 - You MUST NOT output any literal "{{" or "}}" tokens
 - Mermaid: follow valid label quoting (no bare " inside []; use outer "..." with "" for inner quotes, or 「」)
 
 Existing content (do NOT repeat this):
+${existingContent}
+
+STRICT RULES: Do NOT repeat existing content. Do NOT add commentary. Output ONLY the continuation of the document. When all sections are complete, immediately print [DOCUMENT_COMPLETE] on the next line and STOP:`
+}
+):
 ${existingContent}
 
 STRICT RULES: Do NOT repeat existing content. Do NOT add commentary. Output ONLY the continuation of the document. When all sections are complete, immediately print [DOCUMENT_COMPLETE] on the next line and STOP:`
