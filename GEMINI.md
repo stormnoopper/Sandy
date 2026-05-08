@@ -40,6 +40,10 @@ Documents follow a strict sequential chain — do not skip steps:
 3. **SRS** generated using SOW as context via `/api/generate-srs`
 4. **Prototype Spec** generated last
 
+In addition to the sequential generation, the system features an interactive AI assistant:
+- **AI Chatbot**: A context-aware chat panel (`DocumentChatPanel`) available on SOW/SRS pages for real-time feedback. It uses `/api/projects/[id]/chat` and stores history in `chat_sessions` and `chat_messages` tables.
+- **AI Document Editing**: Users can seamlessly apply AI chat suggestions directly to the rich text editor using backend streaming endpoints for document rewriting.
+
 All AI routes stream responses using Vercel AI SDK. Prompts live in `prompts/` and are written in Thai.
 
 ## Coding Conventions
@@ -56,7 +60,7 @@ All AI routes stream responses using Vercel AI SDK. Prompts live in `prompts/` a
 - **Prompts** in `prompts/` are Thai-language — preserve tone and structure when editing.
 - **Tiptap editor** state is JSON internally; export logic in `lib/export-utils.ts` parses HTML output.
 - When modifying AI generation routes, always test streaming behavior — non-streaming responses will break the UI.
-- Supabase RLS policies are active — always query through the authenticated client.
+- Supabase RLS policies are active for core project tables — always query through the authenticated client. Note: RLS is disabled for `chat_sessions` and `chat_messages` as they are managed via internal API routes.
 
 ## Development
 ```bash
