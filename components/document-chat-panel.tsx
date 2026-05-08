@@ -16,6 +16,8 @@ import {
   Bot,
   User,
   ChevronRight,
+  Quote,
+  Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +31,10 @@ interface DocumentChatPanelProps {
   documentContent?: string
   /** HTML content of the SOW (only needed on SRS page) */
   sowContent?: string
+  /** Callback when user clicks "Apply to Document" */
+  onApplyEdit?: (sessionId: string) => void
+  /** Is the document currently generating/updating? */
+  isGenerating?: boolean
 }
 
 export function DocumentChatPanel({
@@ -39,6 +45,8 @@ export function DocumentChatPanel({
   draftId,
   documentContent,
   sowContent,
+  onApplyEdit,
+  isGenerating,
 }: DocumentChatPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -50,6 +58,19 @@ export function DocumentChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  const [hasSelection, setHasSelection] = useState(false)
+
+  // ตรวจจับการเลือกข้อความ
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      setHasSelection(!!selection && selection.toString().trim().length > 0)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => document.removeEventListener('selectionchange', handleSelectionChange)
+  }, [])
 
   // โหลด history เมื่อ panel เปิด หรือ draft เปลี่ยน
   useEffect(() => {
@@ -377,6 +398,31 @@ export function DocumentChatPanel({
               สร้าง draft ก่อนเพื่อเริ่มสนทนา
             </p>
           )}
+
+          {hasSelection && draftId && (
+            <div className="mb-2 flex justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 text-muted-foreground hover:text-foreground shadow-sm bg-muted/50"
+                onMouseDown={(e) => {
+                  e.preventDefault() // ป้องกันไม่ให้ selection หายเวลาคลิก
+                }}
+                onClick={() => {
+                  const text = window.getSelection()?.toString()
+                  if (text) {
+                    setInput((prev) => (prev ? prev + '\n\n' + `> ${text}\n` : `> ${text}\n`))
+                    textareaRef.current?.focus()
+                  }
+                }}
+                title="คัดลอกข้อความที่ไฮไลต์มาใส่ในช่องแชท"
+              >
+                <Quote className="h-3 w-3 mr-1.5" />
+                ดึงข้อความที่เลือก
+              </Button>
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             <Textarea
               ref={textareaRef}
@@ -399,9 +445,24 @@ export function DocumentChatPanel({
               {isLoading ? <Spinner className="size-4" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-            AI อ่านเนื้อหาเอกสารปัจจุบันก่อนตอบ
-          </p>
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-[10px] text-muted-foreground">
+              AI อ่านเนื้อหาเอกสารปัจจุบันก่อนตอบ
+            </p>
+            {onApplyEdit && draftId && sessionId && messages.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 gap-1.5 shadow-sm border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+                onClick={() => onApplyEdit(sessionId)}
+                disabled={isLoading || isGenerating}
+                title="สั่งให้ AI นำเนื้อหาจากการคุยในแชท ไปปรับแก้ในเอกสารหลักอัตโนมัติ"
+              >
+                {isGenerating ? <Spinner className="size-3" /> : <Wand2 className="h-3 w-3" />}
+                นำไปแก้ไขเอกสาร
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -256,6 +256,124 @@ export default function SOWPage({ params }: SOWPageProps) {
     }
   }, [project, activeDraft, selectedDataEntries, id])
 
+  const handleApplyEdit = useCallback(async (sessionId: string) => {
+    if (!project || !activeDraft) return
+
+    const MAX_CONTINUATIONS = 10
+    const CONTINUE_DELAY_MS = 5000
+
+    const streamOnce = async (
+      body: Record<string, unknown>,
+      baseText: string
+    ): Promise<{ finalText: string; complete: boolean; error?: string }> => {
+      const response = await fetch(`/api/projects/${id}/apply-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const responseBody = await response.text()
+        let message = 'Failed to apply edit'
+        try {
+          const json = JSON.parse(responseBody)
+          if (json.error) message = json.error
+        } catch {
+          if (responseBody) message = responseBody
+        }
+        return { finalText: baseText, complete: false, error: message }
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) return { finalText: baseText, complete: false, error: 'No response stream' }
+
+      const decoder = new TextDecoder()
+      let streamed = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        streamed += decoder.decode(value, { stream: true })
+        const combined = baseText + streamed
+        if (hasDocumentMarker(combined)) {
+          const cleaned = stripDocumentMarker(combined)
+          setContent(textToHtml(cleaned))
+          return { finalText: cleaned, complete: true }
+        }
+        setContent(textToHtml(combined))
+      }
+
+      return { finalText: baseText + streamed, complete: false }
+    }
+
+    setIsGenerating(true)
+    const originalContent = content
+    setContent('')
+    setIsComplete(false)
+    setGenerateStatus('generating')
+
+    try {
+      const initial = await streamOnce(
+        {
+          sessionId,
+          documentType: 'sow',
+          documentContent: htmlToText(originalContent),
+        },
+        ''
+      )
+
+      if (initial.error) {
+        toast({ title: 'Edit failed', description: initial.error, variant: 'destructive' })
+        setContent(originalContent)
+        return
+      }
+
+      let currentText = initial.finalText
+      let complete = initial.complete
+
+      for (let i = 0; i < MAX_CONTINUATIONS && !complete; i++) {
+        setGenerateStatus('waiting')
+        await new Promise((resolve) => setTimeout(resolve, CONTINUE_DELAY_MS))
+        setGenerateStatus('continuing')
+
+        const cont = await streamOnce({ continueFrom: currentText, sessionId, documentType: 'sow', documentContent: htmlToText(originalContent) }, currentText)
+
+        if (cont.error) {
+          toast({ title: 'Continue failed', description: cont.error, variant: 'destructive' })
+          break
+        }
+
+        currentText = cont.finalText
+        complete = cont.complete
+      }
+
+      if (complete) {
+        setIsComplete(true)
+        void fetch(`/api/projects/${id}/versions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draftId: activeDraft.id,
+            draftType: 'sow',
+            content: textToHtml(currentText),
+            label: `AI Auto-Edit — ${new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`,
+          }),
+        })
+      }
+    } catch (error) {
+      console.error('Error applying edit:', error)
+      setContent(originalContent)
+      toast({
+        title: 'Edit failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGenerating(false)
+      setGenerateStatus(null)
+    }
+  }, [project, activeDraft, id, content])
+
   const handleExportDocx = useCallback(async () => {
     if (!project || !activeDraft) return
     await exportToDocx({
@@ -365,6 +483,8 @@ export default function SOWPage({ params }: SOWPageProps) {
             documentType="sow"
             draftId={activeDraft?.id}
             documentContent={content}
+            onApplyEdit={handleApplyEdit}
+            isGenerating={isGenerating}
           />
         </div>
       </header>
