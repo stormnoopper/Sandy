@@ -86,3 +86,20 @@ export interface ShareLink {
   viewCount: number
   createdAt: Date
 }
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: Date
+}
+
+export interface ChatSession {
+  id: string
+  projectId: string
+  documentType: 'sow' | 'srs'
+  draftId?: string
+  messages: ChatMessage[]
+  createdAt: Date
+  updatedAt: Date
+}

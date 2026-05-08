@@ -37,6 +37,7 @@ import {
   FileIcon,
   LayoutTemplate,
 } from 'lucide-react'
+import { DocumentChatPanel } from '@/components/document-chat-panel'
 
 interface SRSPageProps {
   params: Promise<{ id: string }>
@@ -463,6 +464,15 @@ export default function SRSPage({ params }: SRSPageProps) {
               Go to Prototype
             </Button>
           )}
+          <DocumentChatPanel
+            projectId={id}
+            projectName={project.name}
+            projectDescription={project.description}
+            documentType="srs"
+            draftId={activeDraft?.id}
+            documentContent={content}
+            sowContent={activeSow?.content}
+          />
         </div>
       </header>
 

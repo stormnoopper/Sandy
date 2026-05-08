@@ -35,6 +35,7 @@ import {
   FileType,
   FileIcon,
 } from 'lucide-react'
+import { DocumentChatPanel } from '@/components/document-chat-panel'
 
 interface SOWPageProps {
   params: Promise<{ id: string }>
@@ -357,6 +358,14 @@ export default function SOWPage({ params }: SOWPageProps) {
               <ArrowRight className="h-4 w-4" />
             </Button>
           )}
+          <DocumentChatPanel
+            projectId={id}
+            projectName={project.name}
+            projectDescription={project.description}
+            documentType="sow"
+            draftId={activeDraft?.id}
+            documentContent={content}
+          />
         </div>
       </header>
 
