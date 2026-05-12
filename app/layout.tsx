@@ -8,6 +8,11 @@ import { NoDarkMode } from './no-dark-mode'
 import { getSafeServerSession } from '@/lib/server-session'
 import { NavigationLoader } from '@/components/navigation-loader'
 
+// This app uses NextAuth (reads headers) in the root layout, so it must
+// always be dynamically rendered. This opts out all routes from static
+// generation and prevents DYNAMIC_SERVER_USAGE errors at deploy time.
+export const dynamic = 'force-dynamic'
+
 const geistSans = Geist({
   subsets: ['latin'],
   variable: '--font-geist-sans',
