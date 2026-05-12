@@ -20,7 +20,7 @@ async function requireMember(supabase: ReturnType<typeof getSupabase>, projectId
   return !!data
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSafeServerSession()
   if (!session?.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 

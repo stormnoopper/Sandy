@@ -25,7 +25,6 @@ interface VersionHistoryPanelProps {
   draftId: string
   draftType: 'sow' | 'srs'
   currentContent: string
-  userName?: string
 }
 
 export function VersionHistoryPanel({
@@ -33,7 +32,6 @@ export function VersionHistoryPanel({
   draftId,
   draftType,
   currentContent,
-  userName,
 }: VersionHistoryPanelProps) {
   const [open, setOpen] = useState(false)
   const [versions, setVersions] = useState<DocumentVersion[]>([])

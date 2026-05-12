@@ -42,6 +42,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: anthropic(REGENERATE_PROMPT_SETTINGS.model),
     prompt,
+    // @ts-ignore
     maxTokens: REGENERATE_PROMPT_SETTINGS.maxOutputTokens,
     temperature: REGENERATE_PROMPT_SETTINGS.temperature,
   })

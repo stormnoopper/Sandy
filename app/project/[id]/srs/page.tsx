@@ -25,7 +25,6 @@ import { stripDocumentMarker, hasDocumentMarker } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { VersionHistoryPanel } from '@/components/version-history-panel'
 import { ShareDocumentDialog } from '@/components/share-document-dialog'
-import { useSession } from 'next-auth/react'
 import {
   ArrowLeft,
   FileCode,
@@ -55,7 +54,6 @@ const SRS_SECTIONS = [
 export default function SRSPage({ params }: SRSPageProps) {
   const { id } = use(params)
   const router = useRouter()
-  const { data: session } = useSession()
   const {
     projects,
     isHydrated,
@@ -67,7 +65,6 @@ export default function SRSPage({ params }: SRSPageProps) {
     renameSrsDraft,
   } = useProjects()
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
   const [generateStatus, setGenerateStatus] = useState<'generating' | 'waiting' | 'continuing' | null>(null)
   const [content, setContent] = useState('')
 
@@ -85,10 +82,8 @@ export default function SRSPage({ params }: SRSPageProps) {
       setCurrentProject(project)
       if (activeDraft) {
         setContent(activeDraft.content)
-        setIsComplete(hasDocumentMarker(htmlToText(activeDraft.content)))
       } else {
         setContent('')
-        setIsComplete(false)
       }
     }
   }, [project, activeDraft, setCurrentProject])
@@ -177,7 +172,6 @@ export default function SRSPage({ params }: SRSPageProps) {
 
     setIsGenerating(true)
     setContent('')
-    setIsComplete(false)
     setGenerateStatus('generating')
 
     const startTime = Date.now()
@@ -225,7 +219,6 @@ export default function SRSPage({ params }: SRSPageProps) {
 
       finalOutputLength = currentText.length
       if (complete) {
-        setIsComplete(true)
         finalStatus = 'completed'
         // Auto-save a version snapshot after successful generation
         void fetch(`/api/projects/${id}/versions`, {
@@ -327,7 +320,6 @@ export default function SRSPage({ params }: SRSPageProps) {
     setIsGenerating(true)
     const originalContent = content
     setContent('')
-    setIsComplete(false)
     setGenerateStatus('generating')
 
     try {
@@ -366,7 +358,6 @@ export default function SRSPage({ params }: SRSPageProps) {
       }
 
       if (complete) {
-        setIsComplete(true)
         void fetch(`/api/projects/${id}/versions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -687,7 +678,6 @@ export default function SRSPage({ params }: SRSPageProps) {
                   draftId={activeDraft.id}
                   draftType="srs"
                   currentContent={content}
-                  userName={session?.user?.name ?? undefined}
                 />
               )}
 

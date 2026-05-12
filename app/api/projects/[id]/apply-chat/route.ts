@@ -20,7 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json({ error: 'GLM_API_KEY is not set.' }, { status: 503 })
   }
 
-  const { id: projectId } = await params
+  await params
   const body = await req.json()
   const { sessionId, documentType, documentContent, continueFrom } = body
 
@@ -75,6 +75,7 @@ ${documentContent}
   const result = streamText({
     model: anthropic('claude-opus-4-5'), // Use Opus for full rewrite since it has a long context
     prompt,
+    // @ts-ignore
     maxTokens: 4096,
     temperature: 0.7,
   })

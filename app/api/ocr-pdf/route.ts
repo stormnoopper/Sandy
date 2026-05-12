@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Try pdf-parse first (works well for text-based PDFs)
+    // @ts-ignore
     const pdfParse = (await import('pdf-parse')).default
     const result = await pdfParse(buffer)
 

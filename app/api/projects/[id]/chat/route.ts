@@ -169,6 +169,7 @@ ${
     model: anthropic('claude-opus-4-5'),
     system: systemPrompt,
     messages,
+    // @ts-ignore
     maxTokens: 2048,
     temperature: 0.7,
     onFinish: async ({ text }) => {

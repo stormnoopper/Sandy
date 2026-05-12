@@ -54,6 +54,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: anthropic(SRS_PROMPT_SETTINGS.model),
     prompt,
+    // @ts-ignore
     maxTokens: SRS_PROMPT_SETTINGS.maxOutputTokens,
     temperature: SRS_PROMPT_SETTINGS.temperature,
   })

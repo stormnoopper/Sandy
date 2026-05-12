@@ -241,8 +241,3 @@ ${existingContent}
 
 STRICT RULES: Do NOT repeat existing content. Do NOT add commentary. Output ONLY the continuation of the document. When all sections are complete, immediately print [DOCUMENT_COMPLETE] on the next line and STOP:`
 }
-):
-${existingContent}
-
-STRICT RULES: Do NOT repeat existing content. Do NOT add commentary. Output ONLY the continuation of the document. When all sections are complete, immediately print [DOCUMENT_COMPLETE] on the next line and STOP:`
-}

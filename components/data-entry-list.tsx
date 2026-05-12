@@ -91,37 +91,43 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
     }
   }
 
-  // Single handler for all file types — auto-detects PDF vs plain text
+  // Single handler for all file types — auto-detects PDF, DOCX vs plain text
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx')
 
-    if (isPdf) {
-      // PDF → send to OCR API
+    if (isPdf || isDocx) {
+      // PDF or DOCX → send to respective extraction API
       setOcrStatus('uploading')
       setOcrError(null)
       setOcrPages(null)
       setOcrMethod(null)
-      setName(file.name.replace(/\.pdf$/i, ''))
+      setName(file.name.replace(/\.(pdf|docx)$/i, ''))
       setContent('')
 
       try {
         const formData = new FormData()
         formData.append('file', file)
 
-        const res = await fetch('/api/ocr-pdf', { method: 'POST', body: formData })
+        const endpoint = isPdf ? '/api/ocr-pdf' : '/api/parse-docx'
+        const res = await fetch(endpoint, { method: 'POST', body: formData })
         const data = await res.json()
 
         if (!res.ok) throw new Error(data.error ?? `Server error ${res.status}`)
 
         setContent(data.text ?? '')
-        setOcrPages(data.pages)
-        setOcrMethod(data.method)
+        if (isPdf) {
+          setOcrPages(data.pages)
+          setOcrMethod(data.method)
+        } else {
+          setOcrMethod(data.method || 'mammoth')
+        }
         setOcrStatus('success')
       } catch (err: any) {
-        setOcrError(err.message ?? 'OCR failed')
+        setOcrError(err.message ?? 'Extraction failed')
         setOcrStatus('error')
       }
     } else {
@@ -222,12 +228,12 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                       <Input
                         ref={fileInputRef}
                         type="file"
-                        accept=".txt,.md,.csv,.json,application/pdf,.pdf"
+                        accept=".txt,.md,.csv,.json,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={handleFileChange}
                         disabled={ocrStatus === 'uploading'}
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        รองรับ .txt .md .csv .json และ PDF — PDF จะถูก OCR อัตโนมัติ
+                        รองรับ .txt .md .csv .json PDF และ DOCX — จะดึงข้อความอัตโนมัติ
                       </p>
                     </Field>
 
@@ -235,7 +241,7 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                     {ocrStatus === 'uploading' && (
                       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                        <span>กำลัง extract ข้อความจาก PDF…</span>
+                        <span>กำลัง extract ข้อความจากไฟล์…</span>
                       </div>
                     )}
 
@@ -254,7 +260,7 @@ export function DataEntryList({ projectId, entries }: DataEntryListProps) {
                           <div className="flex items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
                             <CheckCircle2 className="h-4 w-4 shrink-0" />
                             <span>
-                              PDF extract สำเร็จ
+                              Extract สำเร็จ
                               {ocrPages != null && ` · ${ocrPages} หน้า`}
                               {ocrMethod === 'claude-vision' && ' · ใช้ AI Vision'}
                             </span>

@@ -397,9 +397,9 @@ export async function exportToDocx({ projectName, content, type }: ExportOptions
           new Paragraph({
             children: [
               new ImageRun({
-                data: png.data,
+                data: png.data as any,
                 transformation: { width: png.width, height: png.height },
-              }),
+              } as any),
             ],
             alignment: AlignmentType.CENTER,
             spacing: { before: 160, after: 160 },
