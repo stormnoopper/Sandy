@@ -88,16 +88,17 @@ export function MermaidCodeBlockView(props: NodeViewProps) {
           document.getElementById(id)?.remove()
           if (cancelled) return
           if (isMermaidErrorSvg(svg)) {
-            // Silently hide broken diagrams — user can click "คลิกเพื่อแก้ Flowchart" to fix.
-            host.innerHTML = ''
+            host.innerHTML = '<div class="flex h-28 items-center justify-center text-destructive text-sm font-medium bg-destructive/10 rounded">⚠️ โค้ด Flowchart มีปัญหา (คลิกเพื่อแก้ไข)</div>'
             return
           }
           host.innerHTML = svg
         })
-        .catch(() => {
+        .catch((err) => {
           // Remove any Mermaid-created body element on error too.
           document.getElementById(id)?.remove()
-          if (!cancelled) host.innerHTML = ''
+          if (!cancelled) {
+            host.innerHTML = '<div class="flex h-28 items-center justify-center text-destructive text-sm font-medium bg-destructive/10 rounded">⚠️ โค้ด Flowchart มีปัญหา (คลิกเพื่อแก้ไข)</div>'
+          }
         })
     }, 300)
 

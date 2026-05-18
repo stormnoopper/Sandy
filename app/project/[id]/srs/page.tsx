@@ -42,15 +42,6 @@ interface SRSPageProps {
   params: Promise<{ id: string }>
 }
 
-const SRS_SECTIONS = [
-  'Introduction',
-  'Overall Description',
-  'Functional Requirements',
-  'Non-Functional Requirements',
-  'External Interfaces',
-  'System Constraints',
-]
-
 export default function SRSPage({ params }: SRSPageProps) {
   const { id } = use(params)
   const router = useRouter()
@@ -383,89 +374,6 @@ export default function SRSPage({ params }: SRSPageProps) {
     }
   }, [project, activeDraft, id, content])
 
-  const handleGenerateSection = useCallback(
-    async (section: string) => {
-      if (!project || !activeDraft || !hasActiveSow) return
-
-      setIsGenerating(true)
-      try {
-        const sowContent = activeSow ? htmlToText(activeSow.content) : ''
-        const existingSRS = htmlToText(content)
-        
-        const response = await fetch('/api/generate-srs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectName: project.name,
-            projectDescription: project.description,
-            sow: sowContent,
-            dataEntries: selectedDataEntries,
-            existingSRS,
-            section,
-          }),
-        })
-
-        if (!response.ok) {
-          const body = await response.text()
-          let message = 'Failed to generate section'
-          try {
-            const json = JSON.parse(body)
-            if (json.error) message = json.error
-          } catch {
-            if (body) message = body
-          }
-          toast({
-            title: 'Generation failed',
-            description: message,
-            variant: 'destructive',
-          })
-          return
-        }
-
-        const reader = response.body?.getReader()
-        if (!reader) {
-          toast({
-            title: 'Generation failed',
-            description: 'No response stream',
-            variant: 'destructive',
-          })
-          return
-        }
-
-        const decoder = new TextDecoder()
-        let sectionContent = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          sectionContent += decoder.decode(value, { stream: true })
-          if (hasDocumentMarker(sectionContent)) {
-            sectionContent = stripDocumentMarker(sectionContent)
-            break
-          }
-        }
-
-        setContent((prev) => {
-          const prevText = htmlToText(prev)
-          if (prevText) {
-            return textToHtml(`${prevText}\n\n## ${section}\n\n${sectionContent}`, { mode: 'srs' })
-          }
-          return textToHtml(`## ${section}\n\n${sectionContent}`, { mode: 'srs' })
-        })
-      } catch (error) {
-        console.error('Error generating section:', error)
-        toast({
-          title: 'Generation failed',
-          description: error instanceof Error ? error.message : 'Something went wrong',
-          variant: 'destructive',
-        })
-      } finally {
-        setIsGenerating(false)
-      }
-    },
-    [project, activeDraft, activeSow, content, selectedDataEntries, hasActiveSow]
-  )
-
   const handleExportDocx = useCallback(async () => {
     if (!project || !activeDraft) return
     await exportToDocx({
@@ -625,29 +533,7 @@ export default function SRSPage({ params }: SRSPageProps) {
             description="Choose which project data entries to include together with the SOW."
           />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Generate by Section</CardTitle>
-              <CardDescription className="text-xs">
-                Add individual sections with AI
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {SRS_SECTIONS.map((section) => (
-                <Button
-                  key={section}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleGenerateSection(section)}
-                  disabled={isGenerating || !activeDraft || !hasActiveSow}
-                  className="w-full justify-start gap-2 text-xs"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  {section}
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
+
           </div>
         </aside>
 

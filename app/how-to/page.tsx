@@ -1,7 +1,6 @@
 import { getSafeServerSession } from '@/lib/server-session'
 import { redirect } from 'next/navigation'
 import { ProjectProvider } from '@/lib/project-context'
-import { AppSidebar } from '@/components/app-sidebar'
 import { HowToContent } from '@/components/how-to-content'
 
 export const metadata = {
@@ -19,7 +18,6 @@ export default async function HowToPage() {
   return (
     <ProjectProvider>
       <div className="flex h-screen bg-background">
-        <AppSidebar />
         <HowToContent />
       </div>
     </ProjectProvider>

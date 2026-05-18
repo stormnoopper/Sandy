@@ -3,12 +3,12 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { DraftSelector } from '@/components/draft-selector'
-import { ProjectDataSelector } from '@/components/project-data-selector'
 import { ProjectNotFound } from '@/components/project-not-found'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+
 import {
   Select,
   SelectContent,
@@ -16,20 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { useProjects } from '@/lib/project-context'
 import { getRichTextPreview, hasRichTextContent, htmlToText } from '@/lib/rich-text'
-import { useProjectDataSelection } from '@/lib/use-project-data-selection'
 import {
   buildPrototypePrompt,
   PROTOTYPE_BUILD_TARGET_OPTIONS,
 } from '@/prompts/prototype'
-import { ArrowLeft, Copy, LayoutTemplate, Sparkles, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Copy, LayoutTemplate, Sparkles } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 interface PrototypePageProps {
   params: Promise<{ id: string }>
@@ -50,25 +45,11 @@ export default function PrototypePage({ params }: PrototypePageProps) {
 
   const [prompt, setPrompt] = useState('')
   const [isCopying, setIsCopying] = useState(false)
-  const [baseSrsDraftId, setBaseSrsDraftId] = useState('')
-  const [prototypeBuildTargets, setPrototypeBuildTargets] = useState<string[]>(['Cursor'])
-
-  const toggleBuildTarget = (value: string) => {
-    setPrototypeBuildTargets(prev => 
-      prev.includes(value) 
-        ? prev.filter(t => t !== value)
-        : [...prev, value]
-    )
-  }
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [prototypeBuildTarget, setPrototypeBuildTarget] = useState<string>('Cursor')
 
   const project = projects.find((project) => project.id === id)
-  const { selectedIds: selectedDataEntryIds, setSelectedIds: setSelectedDataEntryIds } =
-    useProjectDataSelection(project?.dataEntries)
   const activeSrsDraft = project?.srsDrafts.find((draft) => draft.id === project.activeSrsDraftId)
-  const baseSrsDraft =
-    project?.srsDrafts.find((draft) => draft.id === baseSrsDraftId) ?? activeSrsDraft ?? null
-  const selectedDataEntries =
-    project?.dataEntries.filter((entry) => selectedDataEntryIds.includes(entry.id)) ?? []
   const hasAnySrsContent = project?.srsDrafts.some((draft) => hasRichTextContent(draft.content)) ?? false
   const activePrototype = useMemo(
     () =>
@@ -83,15 +64,6 @@ export default function PrototypePage({ params }: PrototypePageProps) {
       setCurrentProject(project)
     }
   }, [project, setCurrentProject])
-
-  useEffect(() => {
-    if (!project) return
-
-    const selectedExists = project.srsDrafts.some((draft) => draft.id === baseSrsDraftId)
-    if (selectedExists) return
-
-    setBaseSrsDraftId(project.activeSrsDraftId ?? project.srsDrafts[0]?.id ?? '')
-  }, [project, baseSrsDraftId])
 
   useEffect(() => {
     setPrompt(activePrototype?.prompt ?? '')
@@ -126,30 +98,73 @@ export default function PrototypePage({ params }: PrototypePageProps) {
     [id, project, setActiveSrsDraft]
   )
 
-  const handleGeneratePrompt = useCallback(() => {
-    if (!project || !activeSrsDraft || !baseSrsDraft) return
+  const handleGeneratePrompt = useCallback(async () => {
+    if (!project || !activeSrsDraft) return
 
-    const srsText = htmlToText(baseSrsDraft.content).trim()
+    const srsText = htmlToText(activeSrsDraft.content).trim()
     if (!srsText) return
 
-    const generatedPrompt = buildPrototypePrompt({
+    const metaPrompt = buildPrototypePrompt({
       projectName: project.name,
       projectDescription: project.description,
-      baseSrsDraftName: baseSrsDraft.name,
+      baseSrsDraftName: activeSrsDraft.name,
       srsText,
-      dataEntries: selectedDataEntries,
-      buildTargets: prototypeBuildTargets,
+      buildTarget: prototypeBuildTarget,
     })
 
-    setPrompt(generatedPrompt)
-    upsertPrototype(project.id, activeSrsDraft.id, generatedPrompt)
+    setIsGenerating(true)
+    setPrompt('')
+
+    try {
+      const response = await fetch('/api/generate-prototype', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: metaPrompt }),
+      })
+
+      if (!response.ok) {
+        const responseBody = await response.text()
+        let message = 'Failed to generate prompt'
+        try {
+          const json = JSON.parse(responseBody)
+          if (json.error) message = json.error
+        } catch {
+          if (responseBody) message = responseBody
+        }
+        throw new Error(message)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+
+      const decoder = new TextDecoder()
+      let streamed = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        streamed += decoder.decode(value, { stream: true })
+        setPrompt(streamed)
+      }
+
+      upsertPrototype(project.id, activeSrsDraft.id, streamed)
+    } catch (error) {
+      console.error('Error generating prototype prompt:', error)
+      toast({
+        title: 'Generation failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      })
+      setPrompt(activePrototype?.prompt ?? '')
+    } finally {
+      setIsGenerating(false)
+    }
   }, [
     project,
     activeSrsDraft,
-    baseSrsDraft,
     upsertPrototype,
-    selectedDataEntries,
-    prototypeBuildTargets,
+    prototypeBuildTarget,
+    activePrototype?.prompt,
   ])
 
   const handleCopy = useCallback(async () => {
@@ -234,14 +249,6 @@ export default function PrototypePage({ params }: PrototypePageProps) {
           <Badge variant="outline">
             {project.prototypes.length} saved
           </Badge>
-          <Badge variant="outline">
-            Data {selectedDataEntries.length}/{project.dataEntries.length}
-          </Badge>
-          {baseSrsDraft && (
-            <Badge variant="outline" className="border-chart-1 text-chart-1">
-              Base: {baseSrsDraft.name}
-            </Badge>
-          )}
           <Button variant="outline" size="sm" asChild>
             <Link href={`/project/${id}/srs`}>Back to SRS</Link>
           </Button>
@@ -263,37 +270,30 @@ export default function PrototypePage({ params }: PrototypePageProps) {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
               <span className="shrink-0 text-xs font-medium text-muted-foreground">Build for</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-9 w-[min(100%,20rem)] min-w-[12rem] sm:min-w-[18rem] shrink justify-between px-3 font-normal text-left">
-                    <span className="truncate">
-                      {prototypeBuildTargets.length > 0 
-                        ? prototypeBuildTargets.map(t => PROTOTYPE_BUILD_TARGET_OPTIONS.find(o => o.value === t)?.label || t).join(', ')
-                        : 'Select AI Tools...'}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[min(100vw-2rem,20rem)] sm:w-[18rem]">
+              <Select value={prototypeBuildTarget} onValueChange={setPrototypeBuildTarget}>
+                <SelectTrigger className="h-9 w-[min(100%,12rem)] sm:w-[15rem]">
+                  <SelectValue placeholder="Select AI Tool" />
+                </SelectTrigger>
+                <SelectContent>
                   {PROTOTYPE_BUILD_TARGET_OPTIONS.map((opt) => (
-                    <DropdownMenuCheckboxItem
-                      key={opt.value}
-                      checked={prototypeBuildTargets.includes(opt.value)}
-                      onCheckedChange={() => toggleBuildTarget(opt.value)}
-                    >
+                    <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
-                    </DropdownMenuCheckboxItem>
+                    </SelectItem>
                   ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               className="min-w-[min(100%,16rem)] px-6 sm:min-w-[17.5rem] sm:px-8"
               onClick={handleGeneratePrompt}
-              disabled={!activeSrsDraft || !baseSrsDraft || !baseSrsDraft.content}
+              disabled={isGenerating || !activeSrsDraft || !activeSrsDraft.content}
             >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Generate Prototype Prompt
+              {isGenerating ? (
+                <Spinner className="mr-2 h-4 w-4" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              {isGenerating ? 'Generating...' : 'Generate Prototype Prompt'}
             </Button>
             <Button
               variant="outline"
@@ -320,56 +320,8 @@ export default function PrototypePage({ params }: PrototypePageProps) {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid flex-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Base SRS</CardTitle>
-                  <CardDescription>
-                    Choose which SRS draft to use as the source for prototype generation.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Select value={baseSrsDraftId} onValueChange={setBaseSrsDraftId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select base SRS draft" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {project.srsDrafts.map((draft) => (
-                        <SelectItem key={draft.id} value={draft.id}>
-                          {draft.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div>
-                    <p className="font-medium">{baseSrsDraft?.name ?? 'No base SRS selected'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      The generated prompt will be saved to the currently active prototype document.
-                    </p>
-                  </div>
-                  <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-                    {baseSrsDraft?.content
-                      ? getRichTextPreview(baseSrsDraft.content, 220)
-                      : 'This SRS draft is empty. Generate or write the SRS first.'}
-                  </div>
-                  <div className="rounded-md border bg-background p-3 text-sm">
-                    <span className="font-medium">Saving target:</span>{' '}
-                    {activeSrsDraft ? activeSrsDraft.name : 'No active SRS selected'}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <ProjectDataSelector
-                entries={project.dataEntries}
-                selectedIds={selectedDataEntryIds}
-                onChange={setSelectedDataEntryIds}
-                title="Project Data for Prototype"
-                description="Choose which project data entries should also shape the prototype prompt."
-              />
-            </div>
-
-            <Card className="flex min-h-0 flex-col">
+          <div className="flex flex-1 flex-col">
+            <Card className="flex min-h-0 flex-col flex-1">
               <CardHeader>
                 <CardTitle className="text-base">Prototype Prompt</CardTitle>
                 <CardDescription>

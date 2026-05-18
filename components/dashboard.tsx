@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useProjects } from '@/lib/project-context'
 import { ProjectCard } from './project-card'
+import { TopNav } from './top-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -95,10 +96,12 @@ export function Dashboard() {
   )
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="mx-auto max-w-5xl px-8 py-8">
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <TopNav />
+      <div className="flex-1 overflow-auto">
+        <div className="mx-auto max-w-5xl px-8 py-8">
 
-        {/* Header row */}
+          {/* Header row */}
         <div className="mb-8 flex items-center justify-between animate-fade-in-up">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">Projects</h1>
@@ -280,6 +283,7 @@ export function Dashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   )
 }

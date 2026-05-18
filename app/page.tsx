@@ -1,7 +1,6 @@
 import { AuthForm } from '@/components/auth-form'
 import { getSafeServerSession } from '@/lib/server-session'
 import { ProjectProvider } from '@/lib/project-context'
-import { AppSidebar } from '@/components/app-sidebar'
 import { Dashboard } from '@/components/dashboard'
 
 export default async function Home() {
@@ -18,7 +17,6 @@ export default async function Home() {
   return (
     <ProjectProvider>
       <div className="flex h-screen bg-background">
-        <AppSidebar />
         <Dashboard />
       </div>
     </ProjectProvider>

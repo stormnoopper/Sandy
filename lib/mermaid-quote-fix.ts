@@ -50,9 +50,11 @@ export function fixMermaidQuotedLabels(source: string): string {
     return `${id}${openChar}"${escaped}"${closeChar}`
   }
 
-  s = s.replace(/\b([A-Za-z_]\w*)\[([^\]\n]+)\]/g, replacer)
-  s = s.replace(/\b([A-Za-z_]\w*)\{([^}\n]+)\}/g, replacer)
-  s = s.replace(/\b([A-Za-z_]\w*)\(([^)\n]+)\)/g, replacer)
+  // Use a character class that includes Thai characters, numbers, and letters for the node ID.
+  // We also allow optional spaces before the opening bracket/brace/parenthesis.
+  s = s.replace(/([A-Za-z0-9_ก-๙]+)\s*\[([^\]\n]+)\]/g, replacer)
+  s = s.replace(/([A-Za-z0-9_ก-๙]+)\s*\{([^}\n]+)\}/g, replacer)
+  s = s.replace(/([A-Za-z0-9_ก-๙]+)\s*\(([^)\n]+)\)/g, replacer)
 
   // ── 4. Fix raw `"` in edge-text labels:  A -- "text" --> B ───────────────
   // Convert to pipe syntax:  A -->|"text"| B  (Mermaid parses pipe labels as STR tokens)

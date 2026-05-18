@@ -14,36 +14,10 @@ export const PROTOTYPE_BUILD_TARGET_OPTIONS: {
   { value: 'base44', label: 'base44' },
 ]
 
-function targetCopy(targets: string[]) {
-  const isBase44Only = targets.length === 1 && targets[0] === 'base44'
-  const targetNames = targets.length > 0 ? targets.join(', ') : 'AI builder / agent'
-
-  if (isBase44Only) {
-    return {
-      roleIntro:
-        'You are a senior product designer and UX engineer preparing a detailed application specification to be built on the base44 AI app-builder platform (https://base44.com).',
-      taskIntro:
-        'Your task is to read the SRS and project data below, then produce a complete, actionable base44 app specification. base44 builds web apps from natural-language specs; every section you write will be used directly as input to generate the real app — so be specific, concrete, and avoid vague descriptions.',
-      docTitleLine: '# App Specification for base44',
-      designGuidelinesLine:
-        'Provide clear design direction so base44 applies a consistent look and feel:',
-      buildSectionTitle: '## 8. base44 Build Instructions (คำสั่งสำหรับ base44)',
-      buildSectionIntro: 'These instructions are addressed directly to the base44 AI builder:',
-    }
-  }
-
-  return {
-    roleIntro:
-      `You are a senior product designer and UX engineer preparing a detailed application specification for an AI coding agent or app-builder tool (Target: ${targetNames}) to implement as a responsive web application.`,
-    taskIntro:
-      `Your task is to read the SRS and project data below, then produce a complete, actionable app specification. The consumer may be any AI builder or agent (${targetNames}) that turns natural-language specs into working software; every section you write will be used directly as implementation input — so be specific, concrete, and avoid vague descriptions.`,
-    docTitleLine: '# App Specification',
-    designGuidelinesLine:
-      'Provide clear design direction so the implementation applies a consistent look and feel:',
-    buildSectionTitle: '## 8. Build & implementation instructions (คำสั่งสำหรับผู้พัฒนา / เอไอ)',
-    buildSectionIntro:
-      `These instructions are addressed to the AI builder, coding agent, or developer (${targetNames}) implementing this app:`,
-  }
+export const PROTOTYPE_PROMPT_SETTINGS = {
+  model: 'claude-3-5-sonnet-20241022',
+  temperature: 0.7,
+  maxOutputTokens: 8192,
 }
 
 export function buildPrototypePrompt({
@@ -51,31 +25,91 @@ export function buildPrototypePrompt({
   projectDescription,
   baseSrsDraftName,
   srsText,
-  dataEntries,
   buildTargets = [],
 }: {
   projectName: string
   projectDescription: string
   baseSrsDraftName: string
   srsText: string
-  dataEntries: PromptDataEntry[]
-  buildTargets?: string[]
+  buildTarget?: string
 }) {
-  const projectDataText = formatPromptDataEntries(dataEntries)
-  const copy = targetCopy(buildTargets)
+  const targetNames = buildTarget || 'AI builder / agent'
+  
+  const isCursor = buildTarget === 'Cursor'
+  const isClaude = buildTarget === 'Claude'
+  const isGemini = buildTarget === 'Gemini'
+  const isChatGPT = buildTarget === 'ChatGPT'
+  const isLovable = buildTarget === 'Lovable'
+  const isV0 = buildTarget === 'v0'
+  const isBolt = buildTarget === 'Bolt'
+  const isBase44 = buildTarget === 'base44'
+  const isGeneric = !buildTarget
 
-  return `${copy.roleIntro}
+  let strategies = ''
+  if (isCursor) strategies += '- **Cursor**: Focus on short, actionable prompts designed for context-aware vibe coding in the IDE. Instruct the developer to use `@` to fetch specific files as context (e.g., "@app/page.tsx change to Grid layout"). Focus on extending or refactoring existing code.\n'
+  if (isClaude) strategies += '- **Claude**: Provide detailed Architecture and Tech Stack explanations. Define state management logic, complex business rules, and complete component structure clearly, as Claude handles complex logic and long files well.\n'
+  if (isGemini) strategies += '- **Gemini**: Frame instructions around multimodal capabilities. Mention where UI Wireframes should be attached ("Translate this wireframe..."). Advise using Gemini to search the latest library documentation for project setup.\n'
+  if (isChatGPT) strategies += '- **ChatGPT**: Focus on step-by-step instructions and systematic planning. Include tasks for writing Database Schema structures and generating mock data scripts for sequential testing.\n'
+  if (isLovable) strategies += '- **Lovable**: Describe Product Requirements and desired Vibe (user perspective). Emphasize features, user interactions (e.g., drag & drop), and design aesthetics (e.g., minimalist, dark mode) rather than deep backend architecture.\n'
+  if (isV0) strategies += '- **v0**: Describe Layouts and structures explicitly. Specify exact UI positioning (e.g., "Sidebar on left, Navbar on top, Data Table in middle with 3 Filter buttons"). Focus strictly on UI component generation.\n'
+  if (isBolt) strategies += '- **Bolt.new**: Specify both Frontend and Backend Ecosystems in a single unified command. Define the full Tech Stack to allow full-stack browser scaffolding.\n'
+  if (isBase44) strategies += '- **base44**: Focus tightly on Entity and Model structures. Provide concise specifications of core system data to generate CRUD boilerplates efficiently.\n'
 
-${copy.taskIntro}
+  const sections: string[] = []
+  let sIdx = 1
+
+  sections.push(`## ${sIdx++}. App Overview (ภาพรวมของแอปพลิเคชัน)\nProvide a concise description of what this app does and who it is for.`)
+
+  if (isClaude || isBolt || isBase44 || isChatGPT || isGeneric) {
+    sections.push(`## ${sIdx++}. Architecture & Tech Stack (สถาปัตยกรรมและเทคโนโลยี)\nDefine the primary Frontend and Backend ecosystem.` +
+      (isClaude ? ' Explain state management logic and component structure in detail.' : '') +
+      (isBolt ? ' Formulate a single comprehensive command specifying the full stack (e.g., React + Tailwind + Supabase) for instant scaffolding.' : '')
+    )
+  }
+
+  if (isV0 || isLovable || isGemini || isGeneric) {
+    sections.push(`## ${sIdx++}. UI Layout & Vibe (โครงสร้างหน้าจอและดีไซน์)\nDescribe the visual structure of the application.` +
+      (isV0 ? ' Specify exact positions of UI elements (e.g., "Left sidebar, Top navbar, Data table in the center with 3 filters").' : '') +
+      (isLovable ? ' Detail the product vibe, aesthetics (e.g., minimalist, dark mode), and specific user interactions like drag & drop.' : '') +
+      (isGemini ? ' Indicate where image wireframes should be attached to be translated into basic HTML/CSS/JS.' : '')
+    )
+  }
+
+  if (isBase44 || isChatGPT || isClaude || isBolt || isGeneric) {
+    sections.push(`## ${sIdx++}. Data Models & Schema (โมเดลข้อมูล)\nFor each main entity, specify key fields and relationships.` +
+      (isBase44 ? ' Focus on core system data required for rapid CRUD boilerplate generation.' : '') +
+      (isChatGPT ? ' Include instructions for creating mock data scripts for step-by-step testing.' : '')
+    )
+  }
+
+  if (isCursor || isChatGPT || isGeneric) {
+    sections.push(`## ${sIdx++}. Implementation Tasks (แผนการทำงาน)\nProvide a list of actionable development tasks.` +
+      (isCursor ? ' Break tasks down into short prompts. Specify exactly which existing files to reference using `@filename` syntax.' : '') +
+      (isChatGPT ? ' Formulate a systematic, step-by-step plan.' : '')
+    )
+  }
+
+  // Ensure there's always a Core Features section
+  sections.push(`## ${sIdx++}. Core Features & Logic (ฟีเจอร์หลักและลอจิก)\nList the essential screens, features, and complex business logic.` +
+    (isClaude ? ' Provide deep detail on complex logic requirements.' : '')
+  )
+
+  const sectionOutput = sections.join('\n\n---\n\n')
+
+  return `You are a senior product designer and UX engineer preparing a detailed application specification for an AI coding agent or app-builder tool (Target: ${targetNames}) to implement as a responsive web application.
+
+Your task is to read the SRS below, then produce a complete, actionable app specification. The consumer is an AI builder or agent (${targetNames}) that turns natural-language specs into working software; every section you write will be used directly as implementation input — so be specific, concrete, and avoid vague descriptions.
 
 STRICT RULES:
 - Output ONLY the specification document, nothing else.
 - Do NOT add any text, commentary, or explanation before or after the document.
-- Keep descriptions clear, technical, and concise to save token context. Avoid redundant filler words.
-- Assume the AI builder already knows modern UI/UX best practices. Do NOT specify generic details like padding, margins, or standard focus states unless critical to the business logic.
-- All screens must be explicitly listed, but focus only on data, actions, and specific logic.
+- Keep descriptions clear, technical, and concise to save token context.
 - Use Thai then English in parentheses for domain-specific terms (e.g., "การจัดการโครงการ (Project Management)").
 - End the document with [DOCUMENT_COMPLETE] on the last line and STOP immediately.
+
+TARGET-SPECIFIC STRATEGY:
+Please tailor the content of your specification according to the selected target tool(s):
+${strategies || '- Follow general best practices for AI code generation.\n'}
 
 ---
 
@@ -84,106 +118,19 @@ PROJECT INFORMATION:
 ${projectDescription ? `- Project Summary: ${projectDescription}` : ''}
 - Base SRS Draft: ${baseSrsDraftName}
 
-SELECTED PROJECT DATA:
-${projectDataText || 'No additional project data provided.'}
-
 SYSTEM REQUIREMENTS SPECIFICATION (SRS):
 ${srsText}
 
 ---
 
-Based on the SRS and project data above, generate the following specification document:
+Based on the SRS and the target-specific strategy above, generate the following specification document exactly matching this structure:
 
-${copy.docTitleLine}
+# App Specification for ${targetNames}
 # ${projectName}
 
 ---
 
-## 1. App Overview (ภาพรวมของแอปพลิเคชัน)
-
-Provide a 2–3 sentence description of what this app does, who it is for, and the primary platform (e.g., Responsive Web App).
-
----
-
-## 2. User Roles & Permissions (บทบาทและสิทธิ์ผู้ใช้งาน)
-
-List the user roles and their high-level permissions.
-
-| Role | Access Level | Description |
-| :--- | :--- | :--- |
-| (fill from SRS) | | |
-
----
-
-## 3. Data Models / Schema (โมเดลข้อมูล)
-
-For each main data entity in the app, specify:
-- **Entity name** (Thai + English)
-- **Key fields** (name, data type, required/optional)
-- **Relationships** (e.g., 1:N, M:N)
-
-Format each entity concisely:
-### [Entity Name]
-- **Fields**: \`id\` (UUID), \`name\` (String, Req), \`status\` (Enum), ...
-- **Relationships**: [Describe links to other entities]
-
----
-
-## 4. Navigation & App Structure (โครงสร้างแอปพลิเคชัน)
-
-Describe the main navigation menu and structure.
-- [Module Name] (Roles allowed)
-  - [Sub-page 1]
-  - [Sub-page 2]
-
----
-
-## 5. Core Screens & Features (รายละเอียดหน้าจอหลัก)
-
-For EVERY screen in the app, provide the essential details needed for implementation. Focus on functionality over visual styling.
-
-### Screen: [Screen Name] ([Route e.g. /projects])
-- **Accessible by:** [Roles]
-- **Purpose & Layout:** [e.g., Dashboard / Data Table / Form / Detail View]
-- **Data Displayed:** [What entities/fields are shown on this page]
-- **Key Components:** [e.g., Search bar, Date filter, Line chart for revenue]
-- **Core Actions:** 
-  - [Action 1: e.g., Create Record -> Opens Modal]
-  - [Action 2: e.g., Export to CSV]
-- **Specific Logic/Validation:** [Only if complex, e.g., "End date must be after Start date"]
-
----
-
-## 6. Key User Flows (Flow การใช้งานหลัก)
-
-Describe 2-3 critical end-to-end user flows as simple numbered steps.
-- **Flow:** [Name]
-  1. [Step 1]
-  2. [Step 2]
-  3. [Outcome]
-
----
-
-## 7. Global Design & Technical Rules (ข้อกำหนดการออกแบบและเทคนิค)
-
-${copy.designGuidelinesLine}
-- **Styling:** Use a modern, clean UI library (e.g., Shadcn UI, Tailwind CSS). Apply a consistent color palette matching the brand/industry.
-- **Responsive:** Must be fully responsive (Mobile, Tablet, Desktop).
-- **State Management:** Include standard loading skeletons, empty states, and error toasts.
-
----
-
-${copy.buildSectionTitle}
-
-${copy.buildSectionIntro}
-
-1. Build this as a responsive web application based on the structure defined above.
-2. Setup the database schema using the entities in Section 3.
-3. Implement the screens (Section 5) ensuring all data displays and core actions are functional.
-4. Enforce role-based access control (Section 2).
-5. Pre-populate the database with 3–5 realistic mock data records so the app is demonstrable immediately.
-6. Use Thai as the primary display language for the UI (buttons, labels, messages).
-7. Ensure standard features like pagination, search, and filtering are implemented where data lists are present.
+${sectionOutput}
 
 [DOCUMENT_COMPLETE]`
 }

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { TopNav } from './top-nav'
 
 /* ─────────────────────────────────────────────
    Data
@@ -196,8 +197,10 @@ export function HowToContent() {
   const [activeStep, setActiveStep] = useState<string | null>(null)
 
   return (
-    <main className="flex-1 overflow-auto">
-      {/* Hero */}
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <TopNav />
+      <main className="flex-1 overflow-auto">
+        {/* Hero */}
       <div className="border-b border-border bg-gradient-to-br from-primary/5 via-background to-chart-4/5 px-8 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="mb-3 flex items-center gap-2">
@@ -396,6 +399,7 @@ export function HowToContent() {
           </Button>
         </div>
       </div>
-    </main>
+      </main>
+    </div>
   )
 }

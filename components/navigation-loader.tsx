@@ -27,7 +27,7 @@ function Particle({ style }: { style: React.CSSProperties }) {
   )
 }
 
-const DURATION = 3000 // ms
+const DURATION = 1500 // ms
 
 export function NavigationLoader() {
   const pathname = usePathname()
