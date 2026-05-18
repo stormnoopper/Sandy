@@ -15,6 +15,7 @@ import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 import UnderlineExtension from "@tiptap/extension-underline"
+import { Link } from "@tiptap/extension-link"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -242,10 +243,11 @@ export function SimpleEditor({
       StarterKit.configure({
         horizontalRule: false,
         codeBlock: false,
-        link: {
-          openOnClick: false,
-          enableClickSelection: true,
-        },
+      }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: 'https',
       }),
       CodeBlockWithMermaid,
       TableKit.configure({
